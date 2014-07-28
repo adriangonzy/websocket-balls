@@ -1,14 +1,14 @@
 package game
 
 import (
-	"fmt"
+	_ "fmt"
 	"testing"
 )
 
 func TestRandomColor(t *testing.T) {
-	fmt.Println(randomColor())
+	//fmt.Println(randomColor())
 }
 
 func TestNewRandomBall(t *testing.T) {
-	fmt.Println("%v", NewRandomBall())
+	//fmt.Println("%v", NewRandomBall())
 }

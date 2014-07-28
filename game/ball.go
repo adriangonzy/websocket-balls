@@ -7,30 +7,40 @@ import (
 )
 
 type ball struct {
-	position         *vector
+	Position         *vector `json:"p"`
 	lastGoodPosition *vector
 	velocity         *vector
-	radius           uint
-	mass             uint
-	color            string
+	Radius           float64
+	mass             float64
+	Color            string
+}
+
+func init() {
+	rand.Seed(time.Now().Unix())
+}
+
+func (b *ball) String() string {
+	return fmt.Sprintf("%v", &b)
+}
+
+func randFloat(min, max int) float64 {
+	return rand.Float64()*float64(max-min) + float64(min)
 }
 
 func randInt(min, max int) uint {
-	rand.Seed(time.Now().Unix())
 	return uint(rand.Intn(max-min) + min)
 }
 
 func randomColor() string {
-	rand.Seed(time.Now().Unix())
-	return fmt.Sprintf("#%x", uint(rand.Float32()*float32(0xffffff)))
+	return fmt.Sprintf("#%x", uint(rand.Float64()*float64(0xffffff)))
 }
 
 func NewRandomBall() *ball {
 	return &ball{
-		position: &vector{randInt(0, canvasWidth), randInt(0, canvasHeight)},
-		velocity: &vector{randInt(0, maxVelocity), randInt(0, maxVelocity)},
-		radius:   randInt(0, maxRadius),
-		mass:     randInt(0, maxMass),
-		color:    randomColor(),
+		Position: &vector{randFloat(0, canvasWidth), randFloat(0, canvasHeight)},
+		velocity: &vector{randFloat(0, maxVelocity), randFloat(0, maxVelocity)},
+		Radius:   randFloat(0, maxRadius),
+		mass:     randFloat(0, maxMass),
+		Color:    randomColor(),
 	}
 }

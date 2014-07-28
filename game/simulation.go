@@ -1,18 +1,21 @@
 package game
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 )
 
 const (
-	maxBalls     = 2
+	maxBalls     = 3
 	canvasHeight = 600
 	canvasWidth  = 900
 	maxVelocity  = 10
 	maxRadius    = 50
 	maxMass      = 1000
+	frameRate    = 60
+	frameTimer   = 1000 / frameRate
 )
 
 var last, now time.Time
@@ -24,80 +27,106 @@ var wg sync.WaitGroup
 
 func Start() chan []*ball {
 
-	last := time.Now()
+	last = time.Now()
 
-	fmt.Println("last", last)
-
-	ballsStream := make(chan []*ball)
-	balls := make([]*ball, maxBalls)
+	ballsStream = make(chan []*ball)
+	balls = make([]*ball, maxBalls)
 
 	for i := range balls {
 		balls[i] = NewRandomBall()
 	}
 
-	fmt.Println(balls)
+	ticker := time.NewTicker(time.Millisecond * frameTimer)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				run(frameTimer * time.Millisecond)
+			}
+		}
+	}()
 
-	go run()
 	return ballsStream
 }
 
-func run() {
-	now := time.Now()
-	delta := last.Sub(now)
-	last = now
+func formatBalls() []interface{} {
+	bs := make([]interface{}, len(balls)*4)
+	for i, j := 0, 0; i < len(balls) && j < len(balls)*4; i++ {
+		bs[j] = balls[i].Position.X
+		bs[j+1] = balls[i].Position.Y
+		bs[j+2] = balls[i].Radius
+		bs[j+3] = balls[i].Color
+		j += 4
+	}
+	return bs
+}
 
+func run(delta time.Duration) {
+
+	fmt.Println("delta : ", delta)
 	moveBalls(delta)
 	wallCollisions()
 
-	// number of pairs
+	j, e := json.Marshal(formatBalls())
+	if e != nil {
+		fmt.Errorf("%v", e)
+	}
+	fmt.Printf("%s\n", j)
+
 	wg.Add(((len(balls) - 1) * len(balls)) / 2)
 
 	go func() {
+		fmt.Println("done")
 		wg.Wait()
-		fmt.Println("===========================")
-		fmt.Println(balls)
 	}()
 
 	for i, b1 := range balls {
-		for _, b2 := range balls[i:] {
+		for j, b2 := range balls[i+1:] {
 			go func(b1, b2 *ball) {
 				if ballCollision(b1, b2) {
+					fmt.Printf("Collision %v : %v \n", i, j)
 					collisionReaction(b1, b2)
 				}
 				wg.Done()
 			}(b1, b2)
 		}
 	}
+	//ballsStream <- balls
 }
 
 func moveBalls(delta time.Duration) {
 	for _, b := range balls {
-		b.lastGoodPosition = b.position
-		b.position = b.position.add(b.velocity.multiply(uint(delta / time.Second)))
+		b.lastGoodPosition = b.Position
+		fmt.Println("d", delta)
+		i := delta / time.Microsecond
+		fmt.Println("i", i)
+		v := b.velocity.multiply(float64(i))
+		fmt.Println("v", v)
+		b.Position = b.Position.add(v)
 	}
 }
 
 func wallCollisions() {
 	for _, b := range balls {
-		if (b.position.x+uint(b.radius/2)) >= canvasWidth || (b.position.x-uint(b.radius/2)) <= 0 {
-			b.position = b.lastGoodPosition
-			b.position.x = -b.position.x
+		if (b.Position.X+b.Radius/2) >= canvasWidth || (b.Position.X-b.Radius/2) <= 0 {
+			b.Position = b.lastGoodPosition
+			b.Position.X = -b.Position.X
 		}
-		if (b.position.y+uint(b.radius/2)) >= canvasHeight || (b.position.y-uint(b.radius/2)) <= 0 {
-			b.position = b.lastGoodPosition
-			b.position.y = -b.position.y
+		if (b.Position.Y+b.Radius/2) >= canvasHeight || (b.Position.Y-b.Radius/2) <= 0 {
+			b.Position = b.lastGoodPosition
+			b.Position.Y = -b.Position.Y
 		}
 	}
 }
 
 func ballCollision(b1, b2 *ball) bool {
-	return uint(b1.position.distance(b2.position)) < b1.radius+b2.radius
+	return b1.Position.distance(b2.Position) < b1.Radius+b2.Radius
 }
 
 func collisionReaction(b1, b2 *ball) {
-	normVector := &vector{b1.position.x - b2.position.x, b1.position.y - b2.position.y}
+	normVector := &vector{b1.Position.X - b2.Position.X, b1.Position.Y - b2.Position.Y}
 	normVector.Normalise()
-	tangentVector := &vector{-normVector.y, normVector.x}
+	tangentVector := &vector{-normVector.Y, normVector.X}
 
 	b1NormalProjection := normVector.Dot(b1.velocity)
 	b2NormalProjection := normVector.Dot(b2.velocity)
@@ -113,6 +142,6 @@ func collisionReaction(b1, b2 *ball) {
 	b1.velocity = tangentVector.multiply(b1TangentProjection).add(normVector.multiply(b1NormalProjectionAfter))
 	b2.velocity = tangentVector.multiply(b2TangentProjection).add(normVector.multiply(b2NormalProjectionAfter))
 
-	b1.position = b1.lastGoodPosition
-	b2.position = b2.lastGoodPosition
+	b1.Position = b1.lastGoodPosition
+	b2.Position = b2.lastGoodPosition
 }
