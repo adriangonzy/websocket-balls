@@ -25,7 +25,6 @@ var Simulation = (function (Context) {
         }
     }
 
-
     function updateBallPos(deltaTime, ballArray) {
         for (var i = 0; i < ballArray.length; i++) {
             ballArray[i].lastGoodPosition = ballArray[i].position; // save the balls last good position.

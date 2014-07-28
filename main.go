@@ -34,14 +34,14 @@ func servePlayground(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
-	//go h.run()
+	go h.run()
 	//*
 	http.HandleFunc("/chat", serveHome)
 	http.HandleFunc("/balls", servePlayground)
 	//*/
 	http.Handle("/front/js/", http.FileServer(http.Dir(".")))
 
-	//http.HandleFunc("/ws", serveWs)
+	http.HandleFunc("/ws", serveWs)
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
