@@ -7,5 +7,5 @@ import (
 
 func TestStartSimulation(t *testing.T) {
 	Start()
-	time.Sleep(time.Second)
+	time.Sleep(20 * time.Second)
 }

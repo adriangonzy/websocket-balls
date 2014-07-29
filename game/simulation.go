@@ -39,10 +39,8 @@ func Start() chan []*ball {
 	ticker := time.NewTicker(time.Millisecond * frameTimer)
 	go func() {
 		for {
-			select {
-			case <-ticker.C:
-				run(frameTimer * time.Millisecond)
-			}
+			<-ticker.C
+			run(frameTimer * time.Millisecond)
 		}
 	}()
 
@@ -63,7 +61,6 @@ func formatBalls() []interface{} {
 
 func run(delta time.Duration) {
 
-	fmt.Println("delta : ", delta)
 	moveBalls(delta)
 	wallCollisions()
 
@@ -76,7 +73,6 @@ func run(delta time.Duration) {
 	wg.Add(((len(balls) - 1) * len(balls)) / 2)
 
 	go func() {
-		fmt.Println("done")
 		wg.Wait()
 	}()
 
@@ -97,22 +93,18 @@ func run(delta time.Duration) {
 func moveBalls(delta time.Duration) {
 	for _, b := range balls {
 		b.lastGoodPosition = b.Position
-		fmt.Println("d", delta)
-		i := delta / time.Microsecond
-		fmt.Println("i", i)
-		v := b.velocity.multiply(float64(i))
-		fmt.Println("v", v)
-		b.Position = b.Position.add(v)
+		dMovement := b.velocity.multiply(float64(delta/time.Millisecond) / 1000)
+		b.Position = b.Position.add(dMovement)
 	}
 }
 
 func wallCollisions() {
 	for _, b := range balls {
-		if (b.Position.X+b.Radius/2) >= canvasWidth || (b.Position.X-b.Radius/2) <= 0 {
+		if b.Position.X+b.Radius >= canvasWidth || b.Position.X-b.Radius <= 0 {
 			b.Position = b.lastGoodPosition
 			b.Position.X = -b.Position.X
 		}
-		if (b.Position.Y+b.Radius/2) >= canvasHeight || (b.Position.Y-b.Radius/2) <= 0 {
+		if b.Position.Y+b.Radius >= canvasHeight || b.Position.Y-b.Radius <= 0 {
 			b.Position = b.lastGoodPosition
 			b.Position.Y = -b.Position.Y
 		}

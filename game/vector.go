@@ -23,18 +23,15 @@ func (v *vector) Normalise() *vector {
 }
 
 func (v *vector) add(u *vector) *vector {
-	v.X, v.Y = v.X+u.X, v.Y+u.Y
-	return v
+	return &vector{v.X + u.X, v.Y + u.Y}
 }
 
 func (v *vector) sub(u *vector) *vector {
-	v.X, v.Y = v.X-u.X, v.Y-u.Y
-	return v
+	return &vector{v.X - u.X, v.Y - u.Y}
 }
 
 func (v *vector) multiply(l float64) *vector {
-	v.X, v.Y = v.X*l, v.Y*l
-	return v
+	return &vector{v.X * l, v.Y * l}
 }
 
 func (v *vector) distance(u *vector) float64 {
