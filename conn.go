@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
@@ -86,21 +87,4 @@ func (c *connection) writePump() {
 			}
 		}
 	}
-}
-
-// serverWs handles webocket requests from the peer.
-func serveWs(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", 405)
-		return
-	}
-	ws, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	c := &connection{send: make(chan []byte, 256), ws: ws}
-	h.register <- c
-	go c.writePump()
-	c.readPump()
 }

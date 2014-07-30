@@ -1,0 +1,35 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <meta charset="utf-8" />
+    <title>Canvas</title>
+</head>
+<body>
+   <canvas id="canvas" width = "600" height = "300">
+			Your Browser does not support the canvas tag
+   </canvas>
+   <button id="start">START</button>
+   <script>
+      var conn;   
+
+      if (window["WebSocket"]) {
+        conn = new WebSocket("ws://localhost:8080/ws");
+        conn.onclose = function(evt) {
+            console.log("connection closed");
+        }
+        conn.onmessage = function(evt) {
+            console.log("Msg received : " + evt.data);
+        }
+      } else {
+          console.log("Your browser does not support WebSockets");
+      }
+
+      $("#start").click(function() {
+          $.post("/start");
+      });
+      
+   </script>
+</body>
+</html>

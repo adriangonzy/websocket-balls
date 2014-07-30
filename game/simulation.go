@@ -1,14 +1,13 @@
 package game
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 )
 
 const (
-	maxBalls     = 3
+	maxBalls     = 30
 	canvasHeight = 600
 	canvasWidth  = 900
 	maxVelocity  = 10
@@ -18,23 +17,20 @@ const (
 	frameTimer   = 1000 / frameRate
 )
 
-var last, now time.Time
-var delta time.Duration
-
-var ballsStream chan []*ball
-var balls []*ball
+var ballsStream chan []*Ball
+var Balls []*Ball
 var wg sync.WaitGroup
 
-func Start() chan []*ball {
+func init() {
+	ballsStream = make(chan []*Ball)
+	Balls = make([]*Ball, maxBalls)
 
-	last = time.Now()
-
-	ballsStream = make(chan []*ball)
-	balls = make([]*ball, maxBalls)
-
-	for i := range balls {
-		balls[i] = NewRandomBall()
+	for i := range Balls {
+		Balls[i] = NewRandomBall()
 	}
+}
+
+func Start() chan []*Ball {
 
 	ticker := time.NewTicker(time.Millisecond * frameTimer)
 	go func() {
@@ -47,38 +43,19 @@ func Start() chan []*ball {
 	return ballsStream
 }
 
-func formatBalls() []interface{} {
-	bs := make([]interface{}, len(balls)*4)
-	for i, j := 0, 0; i < len(balls) && j < len(balls)*4; i++ {
-		bs[j] = balls[i].Position.X
-		bs[j+1] = balls[i].Position.Y
-		bs[j+2] = balls[i].Radius
-		bs[j+3] = balls[i].Color
-		j += 4
-	}
-	return bs
-}
-
 func run(delta time.Duration) {
 
 	moveBalls(delta)
 	wallCollisions()
 
-	j, e := json.Marshal(formatBalls())
-	if e != nil {
-		fmt.Errorf("%v", e)
-	}
-	fmt.Printf("%s\n", j)
-
-	wg.Add(((len(balls) - 1) * len(balls)) / 2)
-
+	wg.Add(((len(Balls) - 1) * len(Balls)) / 2)
 	go func() {
 		wg.Wait()
 	}()
 
-	for i, b1 := range balls {
-		for j, b2 := range balls[i+1:] {
-			go func(b1, b2 *ball) {
+	for i, b1 := range Balls {
+		for j, b2 := range Balls[i+1:] {
+			go func(b1, b2 *Ball) {
 				if ballCollision(b1, b2) {
 					fmt.Printf("Collision %v : %v \n", i, j)
 					collisionReaction(b1, b2)
@@ -87,11 +64,12 @@ func run(delta time.Duration) {
 			}(b1, b2)
 		}
 	}
-	//ballsStream <- balls
+
+	ballsStream <- Balls
 }
 
 func moveBalls(delta time.Duration) {
-	for _, b := range balls {
+	for _, b := range Balls {
 		b.lastGoodPosition = b.Position
 		dMovement := b.velocity.multiply(float64(delta/time.Millisecond) / 1000)
 		b.Position = b.Position.add(dMovement)
@@ -99,7 +77,7 @@ func moveBalls(delta time.Duration) {
 }
 
 func wallCollisions() {
-	for _, b := range balls {
+	for _, b := range Balls {
 		if b.Position.X+b.Radius >= canvasWidth || b.Position.X-b.Radius <= 0 {
 			b.Position = b.lastGoodPosition
 			b.Position.X = -b.Position.X
@@ -111,11 +89,11 @@ func wallCollisions() {
 	}
 }
 
-func ballCollision(b1, b2 *ball) bool {
+func ballCollision(b1, b2 *Ball) bool {
 	return b1.Position.distance(b2.Position) < b1.Radius+b2.Radius
 }
 
-func collisionReaction(b1, b2 *ball) {
+func collisionReaction(b1, b2 *Ball) {
 	normVector := &vector{b1.Position.X - b2.Position.X, b1.Position.Y - b2.Position.Y}
 	normVector.Normalise()
 	tangentVector := &vector{-normVector.Y, normVector.X}

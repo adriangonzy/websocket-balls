@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type ball struct {
+type Ball struct {
 	Position         *vector `json:"p"`
 	lastGoodPosition *vector
 	velocity         *vector
@@ -19,7 +19,7 @@ func init() {
 	rand.Seed(time.Now().Unix())
 }
 
-func (b *ball) String() string {
+func (b *Ball) String() string {
 	return fmt.Sprintf("%v", &b)
 }
 
@@ -35,8 +35,8 @@ func randomColor() string {
 	return fmt.Sprintf("#%x", uint(rand.Float64()*float64(0xffffff)))
 }
 
-func NewRandomBall() *ball {
-	return &ball{
+func NewRandomBall() *Ball {
+	return &Ball{
 		Position: &vector{randFloat(0, canvasWidth), randFloat(0, canvasHeight)},
 		velocity: &vector{randFloat(0, maxVelocity), randFloat(0, maxVelocity)},
 		Radius:   randFloat(0, maxRadius),
