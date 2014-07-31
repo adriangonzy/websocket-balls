@@ -2,8 +2,6 @@
 
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <script src="/front/js/Renderer.js"></script>
-    <script src="/front/js/canvas.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <meta charset="utf-8" />
     <title>Canvas</title>
@@ -12,103 +10,132 @@
    <canvas id="canvas" width = "600" height = "300">
 			Your Browser does not support the canvas tag
    </canvas>
-   <button id="start">START</button>
+   <button id="action">CREATE</button>
    <script>
-      var conn;
-
+    
       if (window.addEventListener) window.addEventListener('load', onLoad, false);
 
       function onLoad() {
-          var canvas;
-          var canvasHeigth = 600;
-          var canvasWidth = 900;
-          var context;
+        var conn;
+        var balls;
+        var renderer;
+        var canvas;
+        var canvasHeigth = 600;
+        var canvasWidth = 900;
+        var context;
 
-          var renderer = new Renderer('#CAE1FF'); // takes colour for canvas.
-          
-          function initialiseCanvas() {
-              //find the canvas element using its id attribute.
-              canvas = document.getElementById('canvas');
-              //once canvas is created, create the simulation passing the width and height of canvas
-              canvas.width = canvasWidth;
-              canvas.height = canvasHeigth;
-              simulation = new Simulation(canvas.width, canvas.height);
+        function initialiseCanvas() {
+            //find the canvas element using its id attribute.
+            canvas = document.getElementById('canvas');
+            //once canvas is created, create the simulation passing the width and height of canvas
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeigth;
+            renderer = new Renderer('#CAE1FF'); // takes colour for canvas.
 
-              /*########## Error checking to see if canvas is supported ############## */
-              if (!canvas) {
-                  alert('Error: cannot find the canvas element!');
-                  return;
-              }
-              if (!canvas.getContext) {
-                  alert('Error: no canvas.getContent!');
-                  return;
-              }
-              context = canvas.getContext('2d');
-              if (!context) {
-                  alert('Error: failed to getContent');
-                  return;
-              }
-              console.log("CANVAS INITIALIZED");
-              connectToWs();
-          }
-          initialiseCanvas();
-      }
-
-      function connectToWs() {
-        if (window["WebSocket"]) {
-          conn = new WebSocket("ws://localhost:8080/ws");
-          conn.onclose = function(evt) {
-              console.log("connection closed");
-          }
-          conn.onmessage = function(evt) {
-              console.log("Msg received : " + JSON.parse(evt.data));
-          }
-        } else {
-            console.log("Your browser does not support WebSockets");
+            if (!canvas) {
+                alert('Error: cannot find the canvas element!');
+                return;
+            }
+            if (!canvas.getContext) {
+                alert('Error: no canvas.getContent!');
+                return;
+            }
+            context = canvas.getContext('2d');
+            if (!context) {
+                alert('Error: failed to getContent');
+                return;
+            }
+            console.log("CANVAS INITIALIZED");
+            connectToWs();
         }
 
-        $("#start").click(function() {
-            $.post("/start");
-        });
+        function connectToWs() {
+          if (window["WebSocket"]) {
+            conn = new WebSocket("ws://localhost:8080/ws");
+            conn.onclose = function(evt) {
+                console.log("connection closed");
+            }
+            conn.onmessage = function(evt) {
+                console.log("Msg received : " + evt.data);  
+                balls = JSON.parse(evt.data)
+                if (balls.length > 1)
+                  renderer.draw(context, balls);
+            }
+          } else {
+              console.log("Your browser does not support WebSockets");
+          }
+
+          $("#action").click(createGame);
+        }
+
+        var Renderer = (function (Context) {
+            var canvasColour;
+            function Renderer(inCanvasColour) {
+                canvasColour = inCanvasColour;
+            };
+
+            Renderer.prototype.draw = function(context, ballArray) {
+                console.log("in renderer");
+                console.log(ballArray);
+                // draw Canvas Background.
+                drawCanvasBackground(context);
+                // draw Balls.
+                drawBalls(context, ballArray);
+            }
+
+            function drawCanvasBackground(context) {
+                context.beginPath();
+                context.fillStyle = canvasColour;
+                context.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            function drawBalls(context,ballArray) {
+                for (var i = 0; i < ballArray.length; i++) {
+                    context.beginPath();
+                    // draw ball using ball objects data.
+                    context.arc(ballArray[i].p.X, ballArray[i].p.Y,ballArray[i].Radius, 0, Math.PI * 2, false);
+                    context.strokeStyle = "000000";
+                    context.stroke();
+                    context.fillStyle = ballArray[i].Color;
+                    context.fill();
+                    context.closePath();
+                }
+            }
+
+            return Renderer;
+        })();
+
+        var createGame = function (event) {
+          $(this).unbind("click");
+
+          conn.send(JSON.stringify({
+              action: "create"
+          }));
+
+          $(this).click(startGame);
+        };
+
+        var startGame = function (event) {
+          $(this).unbind("click");
+
+          conn.send(JSON.stringify({
+              action: "start"
+          }));
+
+          $(this).click(stopGame);
+        };
+
+        var stopGame = function (event) {
+          $(this).unbind("click");
+
+          conn.send(JSON.stringify({
+              action: "stop"
+          }));
+
+          $(this).click(startGame);
+        };
+
+        initialiseCanvas();
       }
-
-      var Renderer = (function (Context) {
-          var canvasColour;
-          function Renderer(inCanvasColour) {
-              canvasColour = inCanvasColour;
-          };
-
-          Renderer.prototype.draw = function(context, ballArray) {
-              // draw Canvas Background.
-              drawCanvasBackground(context);
-              // draw Balls.
-              drawBalls(context, ballArray);
-          }
-
-          function drawCanvasBackground(context) {
-              context.beginPath();
-              context.fillStyle = canvasColour;
-              context.fillRect(0, 0, canvas.width, canvas.height);
-          }
-          function drawBalls(context,ballArray) {
-              for (var i = 0; i < ballArray.length; i++) {
-                  context.beginPath();
-                  // draw ball using ball objects data.
-                  context.arc(ballArray[i].getX(), ballArray[i].getY(),ballArray[i].getRadius(), 0, Math.PI * 2, false);
-                  context.strokeStyle = "000000";
-                  context.stroke();
-                  context.fillStyle = ballArray[i].getColour(); 
-                  context.fill();
-                  context.closePath();
-              }
-          }
-
-          return Renderer;
-      })();
-
-
-      
-      
    </script>
 </body>
 </html>

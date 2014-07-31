@@ -5,10 +5,7 @@
 package main
 
 import (
-	"fmt"
 	"github.com/gorilla/websocket"
-	"log"
-	"net/http"
 	"time"
 )
 
@@ -38,6 +35,8 @@ type connection struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+
+	callback func(message []byte)
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -54,6 +53,7 @@ func (c *connection) readPump() {
 		if err != nil {
 			break
 		}
+		c.callback(message)
 		h.broadcast <- message
 	}
 }

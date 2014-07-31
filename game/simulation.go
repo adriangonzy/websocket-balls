@@ -7,12 +7,12 @@ import (
 )
 
 const (
-	maxBalls     = 30
+	maxBalls     = 1000
 	canvasHeight = 600
 	canvasWidth  = 900
-	maxVelocity  = 10
-	maxRadius    = 50
-	maxMass      = 1000
+	maxVelocity  = 5
+	maxRadius    = 1
+	maxMass      = 1
 	frameRate    = 60
 	frameTimer   = 1000 / frameRate
 )
@@ -71,7 +71,7 @@ func run(delta time.Duration) {
 func moveBalls(delta time.Duration) {
 	for _, b := range Balls {
 		b.lastGoodPosition = b.Position
-		dMovement := b.velocity.multiply(float64(delta/time.Millisecond) / 1000)
+		dMovement := b.velocity.multiply(float64(delta/time.Millisecond) / 10)
 		b.Position = b.Position.add(dMovement)
 	}
 }
@@ -80,11 +80,11 @@ func wallCollisions() {
 	for _, b := range Balls {
 		if b.Position.X+b.Radius >= canvasWidth || b.Position.X-b.Radius <= 0 {
 			b.Position = b.lastGoodPosition
-			b.Position.X = -b.Position.X
+			b.velocity.X = -b.velocity.X
 		}
 		if b.Position.Y+b.Radius >= canvasHeight || b.Position.Y-b.Radius <= 0 {
 			b.Position = b.lastGoodPosition
-			b.Position.Y = -b.Position.Y
+			b.velocity.Y = -b.velocity.Y
 		}
 	}
 }

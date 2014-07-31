@@ -11,24 +11,13 @@ import (
 
 	"encoding/json"
 	"net/http"
-	"text/template"
 
 	"github.com/adriangonzy/websocket-balls/game"
 )
 
 var addr = flag.String("addr", ":8080", "http service address")
-var homeTempl = template.Must(template.ParseFiles("front/chat.html"))
 
-func serveHome(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", 405)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	homeTempl.Execute(w, r.Host)
-}
-
-func servePlayground(w http.ResponseWriter, r *http.Request) {
+func serveCanvas(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", 405)
 		return
@@ -47,8 +36,8 @@ func compressBalls(balls []*game.Ball) []interface{} {
 	return bs
 }
 
-func startSimulation(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("start simulation")
+func initSimulation() {
+	fmt.Println("INIT SIMULATION")
 	balls, e := json.Marshal(game.Balls)
 	if e != nil {
 		fmt.Errorf("%v", e)
@@ -57,12 +46,15 @@ func startSimulation(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%s\n", balls)
 
 	h.broadcast <- balls
+}
 
+func startSimulation() {
+	fmt.Println("START SIMULATION")
 	stream := game.Start()
 
 	go func() {
 		for balls := range stream {
-			bytes, e := json.Marshal(compressBalls(balls))
+			bytes, e := json.Marshal(balls)
 			if e != nil {
 				fmt.Errorf("%v", e)
 			}
@@ -71,19 +63,56 @@ func startSimulation(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
+func stopSimulation() {
+	fmt.Println("STOP SIMULATION")
+}
+
+const (
+	create = "create"
+	start  = "start"
+	stop   = "stop"
+)
+
+type CMD struct {
+	Action string `json:"action"`
+}
+
+func gameCallBack(message []byte) {
+	var cmd CMD
+
+	fmt.Printf("MSG RECEIVED: %s", message)
+	e := json.Unmarshal(message, &cmd)
+	if e != nil {
+		fmt.Errorf("%s", e)
+		return
+	}
+
+	fmt.Printf("CMD PARSED: %s", cmd)
+
+	switch cmd.Action {
+	case start:
+		startSimulation()
+	case create:
+		initSimulation()
+	case stop:
+		stopSimulation()
+	}
+}
+
 // serverWs handles webocket requests from the peer.
 func serveWs(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", 405)
 		return
 	}
-	fmt.Println("socket connection established")
+
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	c := &connection{send: make(chan []byte, 256), ws: ws}
+	c := &connection{send: make(chan []byte, 256), ws: ws, callback: gameCallBack}
+
 	h.register <- c
 	go c.writePump()
 	c.readPump()
@@ -91,27 +120,11 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	flag.Parse()
+
 	go h.run()
-	//*
-	http.HandleFunc("/chat", serveHome)
-	http.HandleFunc("/balls", servePlayground)
-	//*/
-	http.Handle("/front/js/", http.FileServer(http.Dir(".")))
 
+	http.HandleFunc("/balls", serveCanvas)
 	http.HandleFunc("/ws", serveWs)
-
-	http.HandleFunc("/start", startSimulation)
-
-	/*
-		for balls := range stream {
-			fmt.Println("===============================================================")
-			j, e := json.Marshal(compressBalls(balls))
-			if e != nil {
-				fmt.Errorf("%v", e)
-			}
-			fmt.Printf("%s\n", j)
-		}
-	*/
 
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {
