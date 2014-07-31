@@ -7,12 +7,12 @@ import (
 )
 
 const (
-	maxBalls     = 1000
+	maxBalls     = 5
 	canvasHeight = 600
 	canvasWidth  = 900
-	maxVelocity  = 5
-	maxRadius    = 1
-	maxMass      = 1
+	maxVelocity  = 7
+	maxRadius    = 50
+	maxMass      = 5
 	frameRate    = 60
 	frameTimer   = 1000 / frameRate
 )

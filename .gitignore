@@ -1,4 +1,5 @@
 ball_server
+websocket-balls
 *.sublime-project
 *.sublime-workspace
 *.DS_STORE
