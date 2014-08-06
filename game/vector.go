@@ -5,20 +5,20 @@ import (
 )
 
 type vector struct {
-	X, Y float64
+	X, Y int
 }
 
-func (v *vector) Dot(u *vector) float64 {
+func (v *vector) Dot(u *vector) int {
 	return (v.X * u.X) + (v.Y * u.Y)
 }
 
 func (v *vector) Magnitude() float64 {
-	return math.Sqrt(v.Dot(v))
+	return math.Sqrt(float64(v.Dot(v)))
 }
 
 func (v *vector) Normalise() *vector {
-	v.X = v.X / v.Magnitude()
-	v.Y = v.Y / v.Magnitude()
+	v.X = int(float64(v.X) / v.Magnitude())
+	v.Y = int(float64(v.Y) / v.Magnitude())
 	return v
 }
 
@@ -31,7 +31,7 @@ func (v *vector) sub(u *vector) *vector {
 }
 
 func (v *vector) multiply(l float64) *vector {
-	return &vector{v.X * l, v.Y * l}
+	return &vector{int(float64(v.X) * l), int(float64(v.Y) * l)}
 }
 
 func (v *vector) distance(u *vector) float64 {

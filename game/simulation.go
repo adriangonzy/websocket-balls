@@ -7,54 +7,74 @@ import (
 )
 
 const (
-	maxBalls     = 5
 	canvasHeight = 600
 	canvasWidth  = 900
 	maxVelocity  = 7
 	maxRadius    = 50
 	maxMass      = 5
-	frameRate    = 60
+	frameRate    = 30
 	frameTimer   = 1000 / frameRate
 )
 
-var ballsStream chan []*Ball
-var Balls []*Ball
-var wg sync.WaitGroup
-
-func init() {
-	ballsStream = make(chan []*Ball)
-	Balls = make([]*Ball, maxBalls)
-
-	for i := range Balls {
-		Balls[i] = NewRandomBall()
-	}
+type Simulation struct {
+	balls []*Ball
+	Balls chan []*Ball
+	done  chan bool
 }
 
-func Start() chan []*Ball {
+func NewSimulation(ballCount int) *Simulation {
+	sim := &Simulation{}
+	balls := make([]*Ball, ballCount)
 
+	// init random balls array
+	// TODO: uniformly spread balls accross the canvas for avoiding early early ball collisions
+	for i := range balls {
+		balls[i] = NewRandomBall()
+	}
+
+	sim.balls = balls
+	sim.Balls = make(chan []*Ball)
+	sim.done = make(chan bool)
+
+	return sim
+}
+
+func (s *Simulation) Start() {
 	ticker := time.NewTicker(time.Millisecond * frameTimer)
 	go func() {
 		for {
-			<-ticker.C
-			run(frameTimer * time.Millisecond)
+			select {
+			case <-ticker.C:
+				s.run(frameTimer * time.Millisecond)
+			case <-s.done:
+				return
+			}
 		}
 	}()
-
-	return ballsStream
 }
 
-func run(delta time.Duration) {
+func (s *Simulation) Stop() {
+	s.done <- true
+	close(s.Balls)
+}
 
-	moveBalls(delta)
-	wallCollisions()
+// Compute simulation balls movement during one frame
+func (s *Simulation) run(delta time.Duration) {
 
-	wg.Add(((len(Balls) - 1) * len(Balls)) / 2)
+	s.moveBalls(delta)
+	s.wallCollisions()
+
+	var wg sync.WaitGroup
+
+	// number of ball pairs
+	wg.Add(((len(s.balls) - 1) * len(s.balls)) / 2)
 	go func() {
 		wg.Wait()
 	}()
 
-	for i, b1 := range Balls {
-		for j, b2 := range Balls[i+1:] {
+	// concurrently compute pairs of balls collisions
+	for i, b1 := range s.balls {
+		for j, b2 := range s.balls[i+1:] {
 			go func(b1, b2 *Ball) {
 				if ballCollision(b1, b2) {
 					fmt.Printf("Collision %v : %v \n", i, j)
@@ -65,24 +85,27 @@ func run(delta time.Duration) {
 		}
 	}
 
-	ballsStream <- Balls
+	// stream ball slice after movement computations
+	s.Balls <- s.balls
 }
 
-func moveBalls(delta time.Duration) {
-	for _, b := range Balls {
+func (s *Simulation) moveBalls(delta time.Duration) {
+	for _, b := range s.balls {
 		b.lastGoodPosition = b.Position
 		dMovement := b.velocity.multiply(float64(delta/time.Millisecond) / 10)
 		b.Position = b.Position.add(dMovement)
 	}
 }
 
-func wallCollisions() {
-	for _, b := range Balls {
+func (s *Simulation) wallCollisions() {
+	for _, b := range s.balls {
 		if b.Position.X+b.Radius >= canvasWidth || b.Position.X-b.Radius <= 0 {
+			fmt.Println("vertical collision ball", b)
 			b.Position = b.lastGoodPosition
 			b.velocity.X = -b.velocity.X
 		}
 		if b.Position.Y+b.Radius >= canvasHeight || b.Position.Y-b.Radius <= 0 {
+			fmt.Println("horizontal collision ball", b)
 			b.Position = b.lastGoodPosition
 			b.velocity.Y = -b.velocity.Y
 		}
@@ -90,7 +113,7 @@ func wallCollisions() {
 }
 
 func ballCollision(b1, b2 *Ball) bool {
-	return b1.Position.distance(b2.Position) < b1.Radius+b2.Radius
+	return int(b1.Position.distance(b2.Position)) < b1.Radius+b2.Radius
 }
 
 func collisionReaction(b1, b2 *Ball) {
@@ -109,8 +132,10 @@ func collisionReaction(b1, b2 *Ball) {
 	b1NormalProjectionAfter := (b1NormalProjection*(b1.mass-b2.mass) + b2NormalProjection*2*b2.mass) / totalMass
 	b2NormalProjectionAfter := (b2NormalProjection*(b2.mass-b1.mass) + b1NormalProjection*2*b1.mass) / totalMass
 
-	b1.velocity = tangentVector.multiply(b1TangentProjection).add(normVector.multiply(b1NormalProjectionAfter))
-	b2.velocity = tangentVector.multiply(b2TangentProjection).add(normVector.multiply(b2NormalProjectionAfter))
+	fmt.Println("TOTAL MASS FOR COLLISION", totalMass)
+
+	b1.velocity = tangentVector.multiply(float64(b1TangentProjection)).add(normVector.multiply(float64(b1NormalProjectionAfter)))
+	b2.velocity = tangentVector.multiply(float64(b2TangentProjection)).add(normVector.multiply(float64(b2NormalProjectionAfter)))
 
 	b1.Position = b1.lastGoodPosition
 	b2.Position = b2.lastGoodPosition

@@ -10,8 +10,8 @@ type Ball struct {
 	Position         *vector `json:"p"`
 	lastGoodPosition *vector
 	velocity         *vector
-	Radius           float64
-	mass             float64
+	Radius           int
+	mass             int
 	Color            string
 }
 
@@ -27,8 +27,8 @@ func randFloat(min, max int) float64 {
 	return rand.Float64()*float64(max-min) + float64(min)
 }
 
-func randInt(min, max int) uint {
-	return uint(rand.Intn(max-min) + min)
+func randInt(min, max int) int {
+	return rand.Intn(max-min) + min
 }
 
 func randomColor() string {
@@ -37,10 +37,10 @@ func randomColor() string {
 
 func NewRandomBall() *Ball {
 	return &Ball{
-		Position: &vector{randFloat(0, canvasWidth), randFloat(0, canvasHeight)},
-		velocity: &vector{randFloat(0, maxVelocity), randFloat(0, maxVelocity)},
-		Radius:   randFloat(0, maxRadius),
-		mass:     randFloat(0, maxMass),
+		Position: &vector{randInt(0, canvasWidth), randInt(0, canvasHeight)},
+		velocity: &vector{randInt(0, maxVelocity), randInt(0, maxVelocity)},
+		Radius:   randInt(0, maxRadius),
+		mass:     randInt(0, maxMass),
 		Color:    randomColor(),
 	}
 }

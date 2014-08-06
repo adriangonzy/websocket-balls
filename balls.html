@@ -10,7 +10,7 @@
    <canvas id="canvas" width = "600" height = "300">
 			Your Browser does not support the canvas tag
    </canvas>
-   <button id="action">CREATE</button>
+   <button id="action">START</button>
    <script>
     
       if (window.addEventListener) window.addEventListener('load', onLoad, false);
@@ -65,7 +65,7 @@
               console.log("Your browser does not support WebSockets");
           }
 
-          $("#action").click(createGame);
+          $("#action").click(startGame);
         }
 
         var Renderer = (function (Context) {
@@ -104,22 +104,10 @@
             return Renderer;
         })();
 
-        var createGame = function (event) {
-          $(this).unbind("click");
-
-          conn.send(JSON.stringify({
-              action: "create"
-          }));
-
-          $(this).click(startGame);
-        };
-
         var startGame = function (event) {
           $(this).unbind("click");
 
-          conn.send(JSON.stringify({
-              action: "start"
-          }));
+          $.get("/simulation/start?balls_count=" + 4);
 
           $(this).click(stopGame);
         };
@@ -127,9 +115,7 @@
         var stopGame = function (event) {
           $(this).unbind("click");
 
-          conn.send(JSON.stringify({
-              action: "stop"
-          }));
+          $.get("/simulation/stop");
 
           $(this).click(startGame);
         };
