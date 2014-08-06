@@ -60,17 +60,10 @@ func (s *Simulation) Stop() {
 
 // Compute simulation balls movement during one frame
 func (s *Simulation) run(delta time.Duration) {
-
-	s.moveBalls(delta)
-	s.wallCollisions()
-
 	var wg sync.WaitGroup
 
 	// number of ball pairs
 	wg.Add(((len(s.balls) - 1) * len(s.balls)) / 2)
-	go func() {
-		wg.Wait()
-	}()
 
 	// concurrently compute pairs of balls collisions
 	for i, b1 := range s.balls {
@@ -85,31 +78,35 @@ func (s *Simulation) run(delta time.Duration) {
 		}
 	}
 
+	go func() {
+		wg.Wait()
+		for _, b := range s.balls {
+			b.move(delta)
+			b.wallCollision()
+			if b.lastGoodPosition != nil {
+				b.lastGoodPosition = b.Position
+			}
+		}
+	}()
+
 	// stream ball slice after movement computations
 	s.Balls <- s.balls
 }
 
-func (s *Simulation) moveBalls(delta time.Duration) {
-	for _, b := range s.balls {
-		b.lastGoodPosition = b.Position
-		dMovement := b.velocity.multiply(float64(delta/time.Millisecond) / 10)
-		b.Position = b.Position.add(dMovement)
-	}
+func (b *Ball) move(delta time.Duration) {
+	b.Position = b.Position.add(b.velocity.multiply(float64(delta/time.Millisecond) / 10))
 }
 
-func (s *Simulation) wallCollisions() {
-	for _, b := range s.balls {
-		if b.Position.X+b.Radius >= canvasWidth || b.Position.X-b.Radius <= 0 {
-			fmt.Println("vertical collision ball", b)
-			b.Position = b.lastGoodPosition
-			b.velocity.X = -b.velocity.X
-		}
-		if b.Position.Y+b.Radius >= canvasHeight || b.Position.Y-b.Radius <= 0 {
-			fmt.Println("horizontal collision ball", b)
-			b.Position = b.lastGoodPosition
-			b.velocity.Y = -b.velocity.Y
-		}
+func (b *Ball) wallCollision() bool {
+	if (b.Position.X+b.Radius >= canvasWidth) && (b.velocity.X >= 0) || (b.Position.X-b.Radius <= 0) && (b.velocity.X <= 0) {
+		b.velocity.X = -b.velocity.X
+		return true
 	}
+	if (b.Position.Y+b.Radius >= canvasHeight) && (b.Position.Y >= 0) || (b.Position.Y-b.Radius <= 0) && (b.Position.Y <= 0) {
+		b.velocity.Y = -b.velocity.Y
+		return true
+	}
+	return false
 }
 
 func ballCollision(b1, b2 *Ball) bool {
@@ -129,14 +126,17 @@ func collisionReaction(b1, b2 *Ball) {
 
 	// after collision
 	totalMass := b1.mass + b2.mass
+	fmt.Println("TOTAL MASS FOR COLLISION", totalMass)
 	b1NormalProjectionAfter := (b1NormalProjection*(b1.mass-b2.mass) + b2NormalProjection*2*b2.mass) / totalMass
 	b2NormalProjectionAfter := (b2NormalProjection*(b2.mass-b1.mass) + b1NormalProjection*2*b1.mass) / totalMass
-
-	fmt.Println("TOTAL MASS FOR COLLISION", totalMass)
 
 	b1.velocity = tangentVector.multiply(float64(b1TangentProjection)).add(normVector.multiply(float64(b1NormalProjectionAfter)))
 	b2.velocity = tangentVector.multiply(float64(b2TangentProjection)).add(normVector.multiply(float64(b2NormalProjectionAfter)))
 
 	b1.Position = b1.lastGoodPosition
 	b2.Position = b2.lastGoodPosition
+
+	if ballCollision(b1, b2) {
+		fmt.Println("STILL IN COLISSION", b1, b2)
+	}
 }

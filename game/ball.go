@@ -36,11 +36,13 @@ func randomColor() string {
 }
 
 func NewRandomBall() *Ball {
+	p := &vector{randInt(0, canvasWidth), randInt(0, canvasHeight)}
 	return &Ball{
-		Position: &vector{randInt(0, canvasWidth), randInt(0, canvasHeight)},
-		velocity: &vector{randInt(0, maxVelocity), randInt(0, maxVelocity)},
-		Radius:   randInt(0, maxRadius),
-		mass:     randInt(0, maxMass),
-		Color:    randomColor(),
+		Position:         p,
+		lastGoodPosition: p,
+		velocity:         &vector{randInt(0, maxVelocity), randInt(0, maxVelocity)},
+		Radius:           randInt(1, maxRadius),
+		mass:             randInt(1, maxMass),
+		Color:            randomColor(),
 	}
 }

@@ -107,7 +107,7 @@
         var startGame = function (event) {
           $(this).unbind("click");
 
-          $.get("/simulation/start?balls_count=" + 4);
+          $.get("/simulation/start?balls_count=" + 10);
 
           $(this).click(stopGame);
         };
