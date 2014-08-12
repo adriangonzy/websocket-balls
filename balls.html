@@ -1,21 +1,22 @@
 ﻿<!DOCTYPE html>
 
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+
 <head>
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <meta charset="utf-8" />
     <title>Canvas</title>
 </head>
-<body>
-   <canvas id="canvas" width = "600" height = "300">
-			Your Browser does not support the canvas tag
-   </canvas>
-   <button id="action">START</button>
-   <script>
-    
-      if (window.addEventListener) window.addEventListener('load', onLoad, false);
 
-      function onLoad() {
+<body>
+    <canvas id="canvas" width="600" height="300">
+        Your Browser does not support the canvas tag
+    </canvas>
+
+    <button id="action">START</button>
+    <input id="numberOfBalls" type="number" min="1" max="20" />
+    <script>
+    $(function() {
         var conn;
         var balls;
         var renderer;
@@ -50,26 +51,27 @@
         }
 
         function connectToWs() {
-          if (window["WebSocket"]) {
-            conn = new WebSocket("ws://localhost:8080/ws");
-            conn.onclose = function(evt) {
-                console.log("connection closed");
+            if (window["WebSocket"]) {
+                conn = new WebSocket("ws://localhost:8080/ws");
+                conn.onclose = function(evt) {
+                    console.log("connection closed");
+                }
+                conn.onmessage = function(evt) {
+                    console.log("Msg received : " + evt.data);
+                    balls = JSON.parse(evt.data)
+                    if (balls.length > 1)
+                        renderer.draw(context, balls);
+                }
+            } else {
+                console.log("Your browser does not support WebSockets");
             }
-            conn.onmessage = function(evt) {
-                console.log("Msg received : " + evt.data);  
-                balls = JSON.parse(evt.data)
-                if (balls.length > 1)
-                  renderer.draw(context, balls);
-            }
-          } else {
-              console.log("Your browser does not support WebSockets");
-          }
 
-          $("#action").click(startGame);
+            $("#action").click(startGame);
         }
 
-        var Renderer = (function (Context) {
+        var Renderer = (function(Context) {
             var canvasColour;
+
             function Renderer(inCanvasColour) {
                 canvasColour = inCanvasColour;
             };
@@ -88,11 +90,12 @@
                 context.fillStyle = canvasColour;
                 context.fillRect(0, 0, canvas.width, canvas.height);
             }
-            function drawBalls(context,ballArray) {
+
+            function drawBalls(context, ballArray) {
                 for (var i = 0; i < ballArray.length; i++) {
                     context.beginPath();
                     // draw ball using ball objects data.
-                    context.arc(ballArray[i].p.X, ballArray[i].p.Y,ballArray[i].Radius, 0, Math.PI * 2, false);
+                    context.arc(ballArray[i].p.X, ballArray[i].p.Y, ballArray[i].Radius, 0, Math.PI * 2, false);
                     context.strokeStyle = "000000";
                     context.stroke();
                     context.fillStyle = ballArray[i].Color;
@@ -104,24 +107,21 @@
             return Renderer;
         })();
 
-        var startGame = function (event) {
-          $(this).unbind("click");
-
-          $.get("/simulation/start?balls_count=" + 10);
-
-          $(this).click(stopGame);
+        var startGame = function(event) {
+            $(this).unbind("click");
+            $.get("/simulation/start?balls_count=" + $("#numberOfBalls").val());
+            $(this).click(stopGame);
         };
 
-        var stopGame = function (event) {
-          $(this).unbind("click");
-
-          $.get("/simulation/stop");
-
-          $(this).click(startGame);
+        var stopGame = function(event) {
+            $(this).unbind("click");
+            $.get("/simulation/stop");
+            $(this).click(startGame);
         };
 
         initialiseCanvas();
-      }
-   </script>
+    });
+    </script>
 </body>
+
 </html>
