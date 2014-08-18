@@ -2,38 +2,27 @@ package game
 
 import (
 	"fmt"
-	"math/rand"
 	"time"
 )
 
 type Ball struct {
-	Id               uint
+	Id               int
 	Position         *vector `json:"p"`
 	lastGoodPosition *vector
 	velocity         *vector
 	Radius           int
 	mass             int
 	Color            string
-}
-
-func init() {
-	rand.Seed(time.Now().Unix())
+	moved            time.Duration
 }
 
 func (b *Ball) String() string {
 	return fmt.Sprintf("%v", &b)
 }
 
-func randFloat(min, max int) float64 {
-	return rand.Float64()*float64(max-min) + float64(min)
-}
-
-func randInt(min, max int) int {
-	return rand.Intn(max-min) + min
-}
-
-func randomColor() string {
-	return fmt.Sprintf("#%x", uint(rand.Float64()*float64(0xffffff)))
+func (b *Ball) move(delta time.Duration) {
+	b.Position = b.Position.add(b.velocity.multiply(float64(delta/time.Millisecond) / 10))
+	b.moved += delta
 }
 
 func NewRandomBall() *Ball {
