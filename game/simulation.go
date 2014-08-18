@@ -35,8 +35,6 @@ func NewSimulation(ballCount int) *Simulation {
 	for i := range balls {
 		balls[i] = NewRandomBall()
 		balls[i].Id = i
-		fmt.Println(i)
-		fmt.Println(balls[i])
 	}
 
 	sim.balls = balls

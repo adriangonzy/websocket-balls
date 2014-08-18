@@ -1,6 +1,8 @@
 package game
 
 import (
+	"fmt"
+	"math"
 	"time"
 )
 
@@ -34,18 +36,55 @@ func (b *Ball) wallCollision() {
 
 func ballCollisionInFrame(b1, b2 *Ball, delta time.Duration) (*Collision, bool) {
 
-	/*
-		t = (-b + sqrt( b2 – 4ac))/2a root 1
-		t = (-b - sqrt( b2 – 4ac))/2a root 2
+	C1x, C1y := b1.Position.X, b1.Position.Y
+	V1x, V1y := b1.velocity.X, b1.velocity.Y
+	C2x, C2y := b2.Position.X, b2.Position.Y
+	V2x, V2y := b2.velocity.X, b2.velocity.Y
+	r1, r2 := b1.Radius, b2.Radius
 
-		a = [(V2x + V2y ) - (V1x + V1y )]2
-		b = 2.( C2x + C2y – C1x - C1y ).( V2x + V2y – V1x - V1y)
-		c = [(C2x + C2y ) - (C1x + C1y )]2 – (r1 + r2)2
-	*/
+	V1V2 := V2x + V2y - V1x - V1y
+	C1C2 := C2x + C2y - C1x - C1y
+	rTotal := float64(r1 + r2)
 
-	// TODO
+	a := V1V2 * V1V2
+	b := 2 * C1C2 * V1V2
+	c := C1C2*C1C2 - rTotal*rTotal
 
-	return nil, false
+	D := b*b - 4*a*c
+
+	t1 := (-b + math.Sqrt(D)) / 2 * a
+	t2 := (-b - math.Sqrt(D)) / 2 * a
+
+	if D < 0 {
+		return nil, false
+	}
+
+	var t int64
+	switch {
+	case 0 < t1 && 0 < t2:
+		t = int64(math.Min(t1, t2))
+	case 0 < t1 && t2 < 0:
+		t = int64(t1)
+	case 0 < t2 && t1 < 0:
+		t = int64(t2)
+	}
+
+	frame := int64(delta / time.Millisecond)
+
+	fmt.Println("=========================")
+	fmt.Println("D", D)
+	fmt.Println("t1", t1)
+	fmt.Println("t2", t2)
+	fmt.Println("t min", t)
+	fmt.Println("delta", frame)
+
+	if t > frame || t <= 0 {
+		fmt.Println("NO COLLISION IN FRAME")
+		return nil, false
+	}
+
+	fmt.Println("COLLISION IN FRAME")
+	return &Collision{b1, b2, time.Duration(t) * time.Millisecond}, true
 }
 
 func collisionReaction(b1, b2 *Ball) {
