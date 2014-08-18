@@ -34,6 +34,15 @@ func (b *Ball) wallCollision() {
 
 func ballCollisionInFrame(b1, b2 *Ball, delta time.Duration) (*Collision, bool) {
 
+	/*
+		t = (-b + sqrt( b2 – 4ac))/2a root 1
+		t = (-b - sqrt( b2 – 4ac))/2a root 2
+
+		a = [(V2x + V2y ) - (V1x + V1y )]2
+		b = 2.( C2x + C2y – C1x - C1y ).( V2x + V2y – V1x - V1y)
+		c = [(C2x + C2y ) - (C1x + C1y )]2 – (r1 + r2)2
+	*/
+
 	// TODO
 
 	return nil, false
