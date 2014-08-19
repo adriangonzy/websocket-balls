@@ -13,7 +13,7 @@ const (
 	PTM = 10 // pixel to meter ratio
 
 	maxRadius   = 2  // meter
-	maxVelocity = 20 // meter/s
+	maxVelocity = 50 // meter/s
 	maxMass     = 10 // kg
 
 	frameRate = 30                                    // frames/s
@@ -32,7 +32,7 @@ func makeTestBalls() []*Ball {
 	balls := make([]*Ball, 2)
 
 	balls[0] = &Ball{
-		Id:       0,
+		Id:       1,
 		Position: &vector{10, 10},
 		velocity: &vector{20, 0},
 		Radius:   1,
@@ -41,7 +41,7 @@ func makeTestBalls() []*Ball {
 	}
 
 	balls[1] = &Ball{
-		Id:       1,
+		Id:       2,
 		Position: &vector{22, 10},
 		velocity: &vector{0, 0},
 		Radius:   1,
@@ -53,24 +53,17 @@ func makeTestBalls() []*Ball {
 }
 
 func NewSimulation(ballCount int) *Simulation {
-	fmt.Println("NEW SIMULATION")
+	fmt.Println("NEW SIMULATION balls:", ballCount)
 
-	sim := &Simulation{}
+	//init random balls array
+	//TODO: uniformly spread balls accross the canvas for avoiding early ball collisions
+	balls := make([]*Ball, ballCount)
+	for i := range balls {
+		balls[i] = NewRandomBall()
+		balls[i].Id = i
+	}
 
-	//balls := make([]*Ball, ballCount)
-	// init random balls array
-	// TODO: uniformly spread balls accross the canvas for avoiding early ball collisions
-	// for i := range balls {
-	// 	balls[i] = NewRandomBall()
-	// 	balls[i].Id = i
-	// }
-
-	sim.balls = makeTestBalls()
-	sim.Balls = make(chan []*Ball)
-	sim.collisions = make(map[int]*Collision)
-	sim.done = make(chan bool)
-
-	return sim
+	return &Simulation{balls: balls, Balls: make(chan []*Ball), done: make(chan bool)}
 }
 
 func (s *Simulation) Start() {
@@ -81,10 +74,7 @@ func (s *Simulation) Start() {
 		for {
 			select {
 			case <-ticker.C:
-				fmt.Println(i, "===============================")
 				s.run(frame)
-				fmt.Println(i, "===============================")
-				fmt.Println()
 				i++
 			case <-s.done:
 				return
@@ -107,6 +97,7 @@ func (s *Simulation) run(delta time.Duration) {
 	wg.Add(((len(s.balls) - 1) * len(s.balls)) / 2)
 
 	// init collision reception channel
+	s.collisions = make(map[int]*Collision)
 	s.collisionsChan = make(chan *Collision)
 	go func() {
 		for c := range s.collisionsChan {
@@ -157,26 +148,25 @@ func (s *Simulation) run(delta time.Duration) {
 	wg.Wait()
 	close(s.collisionsChan)
 
-	fmt.Println("Moving balls for collisions")
 	for _, c := range s.collisions {
-		fmt.Println("collision moment", c.moment)
 		c.b1.move(c.moment)
 		c.b2.move(c.moment)
 		collisionReaction(c.b1, c.b2)
 	}
+	// clear past collisions
+	s.collisions = nil
 
 	// move balls
 	convertedBalls := make([]*Ball, len(s.balls))
 	for i, b := range s.balls {
-		// b.wallCollision()
-
+		b.wallCollision()
 		b.move(delta - b.moved)
 		b.moved = 0
 
+		// change to pixel unit
 		convertedBalls[i] = &Ball{Color: b.Color, Radius: b.Radius * PTM, Position: b.Position.multiply(PTM)}
 	}
 
 	// stream ball slice after movement computations
-
 	s.Balls <- convertedBalls
 }

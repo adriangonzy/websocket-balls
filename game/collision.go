@@ -65,41 +65,24 @@ func ballCollisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) 
 
 	moment := time.Duration(t*1000) * time.Millisecond
 
-	// fmt.Println("=========================")
-	// fmt.Println("t", t)
-	// fmt.Println("moment", moment)
-	// fmt.Println("delta", frame)
-
 	if moment > frame || t <= 0 {
-		// fmt.Println("NO COLLISION IN FRAME")
-		// fmt.Println("=========================")
 		return nil, false
 	}
-
-	// fmt.Println("COLLISION IN FRAME")
-	// fmt.Println("=========================")
 
 	return &Collision{b1, b2, moment}, true
 }
 
 func collisionReaction(b1, b2 *Ball) {
 	fmt.Println("COLLISION between", b1.Id, b2.Id)
-	normVector := &vector{b1.Position.X - b2.Position.X, b1.Position.Y - b2.Position.Y}
+	normVector := &vector{b2.Position.X - b1.Position.X, b2.Position.Y - b1.Position.Y}
 	normVector.Normalise()
-	tangentVector := &vector{-normVector.Y, normVector.X}
 
-	b1NormalProjection := normVector.Dot(b1.velocity)
-	b2NormalProjection := normVector.Dot(b2.velocity)
+	vRelative := &vector{b2.velocity.X - b1.velocity.X, b2.velocity.Y - b1.velocity.Y}
+	vRelative = normVector.multiply(vRelative.Dot(normVector))
 
-	b1TangentProjection := tangentVector.Dot(b1.velocity)
-	b2TangentProjection := tangentVector.Dot(b2.velocity)
-
-	// after collision
 	m1, m2 := b1.mass, b2.mass
-	totalMass := m1 + m2
-	b1NormalProjectionAfter := ((m1-m2)/totalMass)*b1NormalProjection + ((2*m2)/totalMass)*b2NormalProjection
-	b2NormalProjectionAfter := ((m2-m1)/totalMass)*b2NormalProjection + ((2*m1)/totalMass)*b1NormalProjection
+	massMean := (m1 + m2) / 2
 
-	b1.velocity = tangentVector.multiply(b1TangentProjection).add(normVector.multiply(b1NormalProjectionAfter))
-	b2.velocity = tangentVector.multiply(b2TangentProjection).add(normVector.multiply(b2NormalProjectionAfter))
+	b1.velocity = b1.velocity.add(vRelative.multiply(m2 / massMean))
+	b2.velocity = b2.velocity.add(vRelative.multiply(-1 * m1 / massMean))
 }

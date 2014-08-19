@@ -24,7 +24,8 @@ func bindSimulationControls() {
 func startSimulation(w http.ResponseWriter, r *http.Request) {
 
 	if conn == nil {
-		http.Error(w, "Must upgrade to websocket connection before starting simulation ", http.StatusInternalServerError)
+		http.Error(w, "Must upgrade to websocket connection before starting simulation", http.StatusInternalServerError)
+		log.Fatal("Must upgrade to websocket connection before starting simulation")
 		return
 	}
 
@@ -32,6 +33,7 @@ func startSimulation(w http.ResponseWriter, r *http.Request) {
 	ballsCount, err := strconv.Atoi(r.URL.Query().Get("balls_count"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Fatal(err.Error())
 		return
 	}
 
