@@ -77,8 +77,7 @@
             };
 
             Renderer.prototype.draw = function(context, ballArray) {
-                console.log("in renderer");
-                console.log(ballArray);
+                //console.log(ballArray);
                 // draw Canvas Background.
                 drawCanvasBackground(context);
                 // draw Balls.
@@ -108,15 +107,19 @@
         })();
 
         var startGame = function(event) {
+            console.log("SIMULATION START")
             $(this).unbind("click");
             $.get("/simulation/start?balls_count=" + $("#numberOfBalls").val());
             $(this).click(stopGame);
+            $(this).html("STOP");
         };
 
         var stopGame = function(event) {
+            console.log("SIMULATION STOP")
             $(this).unbind("click");
             $.get("/simulation/stop");
             $(this).click(startGame);
+            $(this).html("START");
         };
 
         initialiseCanvas();

@@ -12,12 +12,12 @@ type Collision struct {
 }
 
 func (b *Ball) wallCollision() {
-	r := float64(b.Radius)
+	r := b.Radius
 	// horizontal movement collision
 	switch {
-	case b.Position.X+r >= canvasWidth && b.velocity.X >= 0:
+	case b.Position.X+r >= canvasWidth/PTM && b.velocity.X >= 0:
 		b.velocity.X = -b.velocity.X
-		b.Position.X = canvasWidth - r
+		b.Position.X = canvasWidth/PTM - r
 	case b.Position.X-r <= 0 && b.velocity.X <= 0:
 		b.velocity.X = -b.velocity.X
 		b.Position.X = r
@@ -25,69 +25,65 @@ func (b *Ball) wallCollision() {
 
 	// vertical movement collision
 	switch {
-	case b.Position.Y+r >= canvasHeight && b.velocity.Y >= 0:
+	case b.Position.Y+r >= canvasHeight/PTM && b.velocity.Y >= 0:
 		b.velocity.Y = -b.velocity.Y
-		b.Position.Y = canvasHeight - r
+		b.Position.Y = canvasHeight/PTM - r
 	case b.Position.Y-r <= 0 && b.velocity.Y <= 0:
 		b.velocity.Y = -b.velocity.Y
 		b.Position.Y = r
 	}
 }
 
-func ballCollisionInFrame(b1, b2 *Ball, delta time.Duration) (*Collision, bool) {
+func ballCollisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
 
-	C1x, C1y := b1.Position.X, b1.Position.Y
-	V1x, V1y := b1.velocity.X, b1.velocity.Y
-	C2x, C2y := b2.Position.X, b2.Position.Y
-	V2x, V2y := b2.velocity.X, b2.velocity.Y
-	r1, r2 := b1.Radius, b2.Radius
+	V1V2 := b2.velocity.add(b1.velocity.multiply(-1))
+	C1C2 := b2.Position.add(b1.Position.multiply(-1))
+	rTotal := b1.Radius + b2.Radius
 
-	V1V2 := V2x + V2y - V1x - V1y
-	C1C2 := C2x + C2y - C1x - C1y
-	rTotal := float64(r1 + r2)
-
-	a := V1V2 * V1V2
-	b := 2 * C1C2 * V1V2
-	c := C1C2*C1C2 - rTotal*rTotal
+	a := V1V2.Dot(V1V2)
+	b := 2 * C1C2.Dot(V1V2)
+	c := C1C2.Dot(C1C2) - rTotal*rTotal
 
 	D := b*b - 4*a*c
-
-	t1 := (-b + math.Sqrt(D)) / 2 * a
-	t2 := (-b - math.Sqrt(D)) / 2 * a
 
 	if D < 0 {
 		return nil, false
 	}
 
-	var t int64
+	t1 := (-b + math.Sqrt(D)) / (2 * a)
+	t2 := (-b - math.Sqrt(D)) / (2 * a)
+
+	var t float64
 	switch {
 	case 0 < t1 && 0 < t2:
-		t = int64(math.Min(t1, t2))
+		t = math.Min(t1, t2)
 	case 0 < t1 && t2 < 0:
-		t = int64(t1)
+		t = t1
 	case 0 < t2 && t1 < 0:
-		t = int64(t2)
+		t = t2
 	}
 
-	frame := int64(delta / time.Millisecond)
+	moment := time.Duration(t*1000) * time.Millisecond
 
-	fmt.Println("=========================")
-	fmt.Println("D", D)
-	fmt.Println("t1", t1)
-	fmt.Println("t2", t2)
-	fmt.Println("t min", t)
-	fmt.Println("delta", frame)
+	// fmt.Println("=========================")
+	// fmt.Println("t", t)
+	// fmt.Println("moment", moment)
+	// fmt.Println("delta", frame)
 
-	if t > frame || t <= 0 {
-		fmt.Println("NO COLLISION IN FRAME")
+	if moment > frame || t <= 0 {
+		// fmt.Println("NO COLLISION IN FRAME")
+		// fmt.Println("=========================")
 		return nil, false
 	}
 
-	fmt.Println("COLLISION IN FRAME")
-	return &Collision{b1, b2, time.Duration(t) * time.Millisecond}, true
+	// fmt.Println("COLLISION IN FRAME")
+	// fmt.Println("=========================")
+
+	return &Collision{b1, b2, moment}, true
 }
 
 func collisionReaction(b1, b2 *Ball) {
+	fmt.Println("COLLISION between", b1.Id, b2.Id)
 	normVector := &vector{b1.Position.X - b2.Position.X, b1.Position.Y - b2.Position.Y}
 	normVector.Normalise()
 	tangentVector := &vector{-normVector.Y, normVector.X}
@@ -99,10 +95,10 @@ func collisionReaction(b1, b2 *Ball) {
 	b2TangentProjection := tangentVector.Dot(b2.velocity)
 
 	// after collision
-	m1, m2 := float64(b1.mass), float64(b2.mass)
+	m1, m2 := b1.mass, b2.mass
 	totalMass := m1 + m2
-	b1NormalProjectionAfter := ((m1-m2)/totalMass)*b1NormalProjection + (2*m2/totalMass)*b2NormalProjection
-	b2NormalProjectionAfter := ((m2-m1)/totalMass)*b2NormalProjection + (2*m1/totalMass)*b1NormalProjection
+	b1NormalProjectionAfter := ((m1-m2)/totalMass)*b1NormalProjection + ((2*m2)/totalMass)*b2NormalProjection
+	b2NormalProjectionAfter := ((m2-m1)/totalMass)*b2NormalProjection + ((2*m1)/totalMass)*b1NormalProjection
 
 	b1.velocity = tangentVector.multiply(b1TangentProjection).add(normVector.multiply(b1NormalProjectionAfter))
 	b2.velocity = tangentVector.multiply(b2TangentProjection).add(normVector.multiply(b2NormalProjectionAfter))

@@ -6,14 +6,13 @@ import (
 )
 
 type Ball struct {
-	Id               int
-	Position         *vector `json:"p"`
-	lastGoodPosition *vector
-	velocity         *vector
-	Radius           int
-	mass             int
-	Color            string
-	moved            time.Duration
+	Id       int
+	Position *vector `json:"p"`
+	velocity *vector
+	Radius   float64
+	mass     float64
+	Color    string
+	moved    time.Duration
 }
 
 func (b *Ball) String() string {
@@ -21,18 +20,18 @@ func (b *Ball) String() string {
 }
 
 func (b *Ball) move(delta time.Duration) {
-	b.Position = b.Position.add(b.velocity.multiply(float64(delta/time.Millisecond) / 10))
+	// convert to seconds
+	acc := float64(delta/time.Millisecond) / 1000
+	b.Position = b.Position.add(b.velocity.multiply(acc))
 	b.moved += delta
 }
 
 func NewRandomBall() *Ball {
-	p := &vector{randFloat(0, canvasWidth), randFloat(0, canvasHeight)}
 	return &Ball{
-		Position:         p,
-		lastGoodPosition: p,
-		velocity:         &vector{randFloat(0, maxVelocity), randFloat(0, maxVelocity)},
-		Radius:           randInt(1, maxRadius),
-		mass:             randInt(1, maxMass),
-		Color:            randomColor(),
+		Position: &vector{randFloat(0, canvasWidth/PTM), randFloat(0, canvasHeight/PTM)},
+		velocity: &vector{randFloat(0, maxVelocity), randFloat(0, maxVelocity)},
+		Radius:   randFloat(1, maxRadius),
+		mass:     randFloat(1, maxMass),
+		Color:    randomColor(),
 	}
 }

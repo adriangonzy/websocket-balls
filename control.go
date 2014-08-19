@@ -36,7 +36,7 @@ func startSimulation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// init simulation with given number of balls
-	sim := game.NewSimulation(ballsCount)
+	sim = game.NewSimulation(ballsCount)
 	sim.Start()
 
 	go func() {
