@@ -17,8 +17,9 @@ func (v *vector) Magnitude() float64 {
 }
 
 func (v *vector) Normalise() *vector {
-	v.X = v.X / v.Magnitude()
-	v.Y = v.Y / v.Magnitude()
+	m := v.Magnitude()
+	v.X = v.X / m
+	v.Y = v.Y / m
 	return v
 }
 
