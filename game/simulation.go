@@ -12,7 +12,7 @@ const (
 
 	PTM = 10 // pixel to meter ratio
 
-	maxRadius   = 2  // meter
+	maxRadius   = 1  // meter
 	maxVelocity = 50 // meter/s
 	maxMass     = 10 // kg
 
@@ -26,6 +26,7 @@ type Simulation struct {
 	done           chan bool
 	collisions     map[int]*Collision
 	collisionsChan chan *Collision
+	wg             sync.WaitGroup
 }
 
 func makeTestBalls() []*Ball {
@@ -69,13 +70,11 @@ func NewSimulation(ballCount int) *Simulation {
 func (s *Simulation) Start() {
 	fmt.Println("START SIMULATION")
 	ticker := time.NewTicker(frame)
-	var i int
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
 				s.run(frame)
-				i++
 			case <-s.done:
 				return
 			}
@@ -91,12 +90,63 @@ func (s *Simulation) Stop() {
 
 // Compute simulation balls movement during one frame
 func (s *Simulation) run(delta time.Duration) {
-	var wg sync.WaitGroup
 
-	// number of ball pairs
-	wg.Add(((len(s.balls) - 1) * len(s.balls)) / 2)
+	s.computeCollisions(delta)
+
+	// compute ball movement given collision slice
+	for _, c := range s.collisions {
+		c.b1.move(c.moment)
+		c.b2.move(c.moment)
+		collisionReaction(c.b1, c.b2)
+	}
+
+	// change to pixel unit
+	convertedBalls := make([]*Ball, len(s.balls))
+
+	// finish moving balls in frame
+	for i, b := range s.balls {
+
+		// TODO: wall collision computed the same way as ball collision
+		b.wallCollision()
+
+		b.move(delta - b.moved)
+		b.moved = 0
+
+		// change to pixel unit
+		convertedBalls[i] = &Ball{Color: b.Color, Radius: b.Radius * PTM, Position: b.Position.multiply(PTM)}
+	}
+
+	// stream ball slice after movement computations
+	s.Balls <- convertedBalls
+}
+
+func (s *Simulation) computeCollisions(delta time.Duration) {
+	// clear past collisions
+	s.collisions = nil
 
 	// init collision reception channel
+	s.startCollisionReception()
+
+	// number of ball pairs
+	s.wg.Add(((len(s.balls) - 1) * len(s.balls)) / 2)
+
+	// concurrently compute pairs of balls collisions
+	for i, b1 := range s.balls {
+		for _, b2 := range s.balls[i+1:] {
+			go func(b1, b2 *Ball) {
+				if collision, ok := ballCollisionInFrame(b1, b2, delta); ok {
+					s.collisionsChan <- collision
+				}
+				s.wg.Done()
+			}(b1, b2)
+		}
+	}
+
+	s.wg.Wait()
+	close(s.collisionsChan)
+}
+
+func (s *Simulation) startCollisionReception() {
 	s.collisions = make(map[int]*Collision)
 	s.collisionsChan = make(chan *Collision)
 	go func() {
@@ -110,8 +160,7 @@ func (s *Simulation) run(delta time.Duration) {
 				s.collisions[c.b2.Id] = c
 			}
 
-			b1M := s.collisions[c.b1.Id].moment
-			b2M := s.collisions[c.b2.Id].moment
+			b1M, b2M := s.collisions[c.b1.Id].moment, s.collisions[c.b2.Id].moment
 			cM := c.moment
 
 			if b1M < b2M {
@@ -132,42 +181,4 @@ func (s *Simulation) run(delta time.Duration) {
 			}
 		}
 	}()
-
-	// concurrently compute pairs of balls collisions
-	for i, b1 := range s.balls {
-		for _, b2 := range s.balls[i+1:] {
-			go func(b1, b2 *Ball) {
-				if collision, ok := ballCollisionInFrame(b1, b2, delta); ok {
-					s.collisionsChan <- collision
-				}
-				wg.Done()
-			}(b1, b2)
-		}
-	}
-
-	wg.Wait()
-	close(s.collisionsChan)
-
-	for _, c := range s.collisions {
-		c.b1.move(c.moment)
-		c.b2.move(c.moment)
-		collisionReaction(c.b1, c.b2)
-	}
-
-	// clear past collisions
-	s.collisions = nil
-
-	// move balls
-	convertedBalls := make([]*Ball, len(s.balls))
-	for i, b := range s.balls {
-		b.wallCollision()
-		b.move(delta - b.moved)
-		b.moved = 0
-
-		// change to pixel unit
-		convertedBalls[i] = &Ball{Color: b.Color, Radius: b.Radius * PTM, Position: b.Position.multiply(PTM)}
-	}
-
-	// stream ball slice after movement computations
-	s.Balls <- convertedBalls
 }

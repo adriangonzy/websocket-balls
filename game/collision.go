@@ -35,24 +35,26 @@ func (b *Ball) wallCollision() {
 }
 
 func ballCollisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
-
-	V1V2 := b2.velocity.add(b1.velocity.multiply(-1))
-	C1C2 := b2.Position.add(b1.Position.multiply(-1))
+	V1V2 := &vector{b2.velocity.X - b1.velocity.X, b2.velocity.Y - b1.velocity.Y}
+	C1C2 := &vector{b2.Position.X - b1.Position.X, b2.Position.Y - b1.Position.Y}
 	rTotal := b1.Radius + b2.Radius
 
+	// discriminant computation
 	a := V1V2.Dot(V1V2)
 	b := 2 * C1C2.Dot(V1V2)
 	c := C1C2.Dot(C1C2) - rTotal*rTotal
-
 	D := b*b - 4*a*c
 
+	// no possible roots
 	if D < 0 {
 		return nil, false
 	}
 
+	// roots computation
 	t1 := (-b + math.Sqrt(D)) / (2 * a)
 	t2 := (-b - math.Sqrt(D)) / (2 * a)
 
+	// the min positive root corresponds to the collision time
 	var t float64
 	switch {
 	case 0 < t1 && 0 < t2:
@@ -63,13 +65,14 @@ func ballCollisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) 
 		t = t2
 	}
 
-	moment := time.Duration(t*1000) * time.Millisecond
+	// collision time in ms
+	collisionTime := time.Duration(t*1000) * time.Millisecond
 
-	if moment > frame || t <= 0 {
+	if collisionTime > frame || t <= 0 {
 		return nil, false
 	}
 
-	return &Collision{b1, b2, moment}, true
+	return &Collision{b1, b2, collisionTime}, true
 }
 
 func collisionReaction(b1, b2 *Ball) {
@@ -77,12 +80,15 @@ func collisionReaction(b1, b2 *Ball) {
 	normVector := &vector{b2.Position.X - b1.Position.X, b2.Position.Y - b1.Position.Y}
 	normVector.Normalise()
 
+	// balls relative velocity projected on the normal vector
 	vRelative := &vector{b2.velocity.X - b1.velocity.X, b2.velocity.Y - b1.velocity.Y}
 	vRelative = normVector.multiply(vRelative.Dot(normVector))
 
 	m1, m2 := b1.mass, b2.mass
 	massMean := (m1 + m2) / 2
 
+	// v1' = v1 + (m2/massMean) * vRelative
 	b1.velocity = b1.velocity.add(vRelative.multiply(m2 / massMean))
+	// v2' = v2 - (m1/massMean) * vRelative
 	b2.velocity = b2.velocity.add(vRelative.multiply(-1 * m1 / massMean))
 }
