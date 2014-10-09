@@ -11,6 +11,10 @@ type Collision struct {
 	moment time.Duration
 }
 
+func (c *Collision) String() string {
+	return fmt.Sprintf("%d", c.moment)
+}
+
 func (b *Ball) wallCollision() {
 	r := b.Radius
 	// horizontal movement collision
@@ -34,7 +38,12 @@ func (b *Ball) wallCollision() {
 	}
 }
 
-func ballCollisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
+func collisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
+	// avoid molecule like structures (glued balls)
+	if (b1.Radius + b2.Radius) > b1.Position.distance(b2.Position) {
+		return nil, false
+	}
+
 	V1V2 := &vector{b2.velocity.X - b1.velocity.X, b2.velocity.Y - b1.velocity.Y}
 	C1C2 := &vector{b2.Position.X - b1.Position.X, b2.Position.Y - b1.Position.Y}
 	rTotal := b1.Radius + b2.Radius
@@ -75,8 +84,13 @@ func ballCollisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) 
 	return &Collision{b1, b2, collisionTime}, true
 }
 
-func collisionReaction(b1, b2 *Ball) {
-	fmt.Println("COLLISION between", b1.Id, b2.Id)
+func (c *Collision) reaction() {
+	b1, b2 := c.b1, c.b2
+	// move balls to collision time
+	b1.move(c.moment)
+	b2.move(c.moment)
+
+	//fmt.Println("COLLISION between", b1.Id, b2.Id)
 	normVector := &vector{b2.Position.X - b1.Position.X, b2.Position.Y - b1.Position.Y}
 	normVector.Normalise()
 

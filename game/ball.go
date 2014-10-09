@@ -29,9 +29,9 @@ func (b *Ball) move(delta time.Duration) {
 func NewRandomBall() *Ball {
 	return &Ball{
 		Position: &vector{randFloat(0, canvasWidth/PTM), randFloat(0, canvasHeight/PTM)},
-		velocity: &vector{randFloat(0, maxVelocity), randFloat(0, maxVelocity)},
-		Radius:   randFloat(1, maxRadius),
-		mass:     randFloat(1, maxMass),
+		velocity: &vector{randFloat(minVelocity, maxVelocity), randFloat(minVelocity, maxVelocity)},
+		Radius:   randFloat(minRadius, maxRadius),
+		mass:     randFloat(minMass, maxMass),
 		Color:    randomColor(),
 	}
 }

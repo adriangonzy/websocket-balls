@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -12,45 +13,22 @@ const (
 
 	PTM = 10 // pixel to meter ratio
 
-	maxRadius   = 1  // meter
-	maxVelocity = 50 // meter/s
-	maxMass     = 10 // kg
+	maxRadius   = 0.6 // meter
+	minRadius   = 0.6 // meter
+	maxVelocity = 25  // meter/s
+	minVelocity = -25 // meter/s
+	maxMass     = 10  // kg
+	minMass     = 1   // kg
 
 	frameRate = 30                                    // frames/s
 	frame     = (1000 / frameRate) * time.Millisecond // frame in ms
 )
 
 type Simulation struct {
-	balls          []*Ball
-	Balls          chan []*Ball
-	done           chan bool
-	collisions     map[int]*Collision
-	collisionsChan chan *Collision
-	wg             sync.WaitGroup
-}
-
-func makeTestBalls() []*Ball {
-	balls := make([]*Ball, 2)
-
-	balls[0] = &Ball{
-		Id:       1,
-		Position: &vector{10, 10},
-		velocity: &vector{20, 0},
-		Radius:   randFloat(1, 4),
-		mass:     4,
-		Color:    randomColor(),
-	}
-
-	balls[1] = &Ball{
-		Id:       2,
-		Position: &vector{22, 10},
-		velocity: &vector{-13, 0},
-		Radius:   randFloat(1, 7),
-		mass:     1,
-		Color:    randomColor(),
-	}
-
-	return balls
+	balls      []*Ball
+	Balls      chan []*Ball
+	done       chan bool
+	collisions []*Collision
 }
 
 func NewSimulation(ballCount int) *Simulation {
@@ -74,6 +52,7 @@ func (s *Simulation) Start() {
 		for {
 			select {
 			case <-ticker.C:
+				// TODO: block until current frame is finished
 				s.run(frame)
 			case <-s.done:
 				return
@@ -92,29 +71,44 @@ func (s *Simulation) Stop() {
 func (s *Simulation) run(delta time.Duration) {
 
 	s.computeCollisions(delta)
+	s.sortCollisions()
+
+	collided := make(map[*Ball]bool)
 
 	// compute ball movement given collision slice
 	for _, c := range s.collisions {
-		c.b1.move(c.moment)
-		c.b2.move(c.moment)
-		collisionReaction(c.b1, c.b2)
+		if collided[c.b1] || collided[c.b2] {
+			continue
+		}
+		collided[c.b1], collided[c.b2] = true, true
+		c.reaction()
 	}
 
 	// change to pixel unit
 	convertedBalls := make([]*Ball, len(s.balls))
 
-	// finish moving balls in frame
+	// finish moving balls concurrently in frame
+	var wg sync.WaitGroup
+	wg.Add(len(s.balls))
+
 	for i, b := range s.balls {
+		go func(b *Ball, i int) {
+			// TODO: wall collision computed the same way as ball collision
+			b.wallCollision()
 
-		// TODO: wall collision computed the same way as ball collision
-		b.wallCollision()
+			b.move(delta - b.moved)
+			b.moved = 0
 
-		b.move(delta - b.moved)
-		b.moved = 0
-
-		// change to pixel unit
-		convertedBalls[i] = &Ball{Color: b.Color, Radius: b.Radius * PTM, Position: b.Position.multiply(PTM)}
+			// change to pixel unit
+			convertedBalls[i] = &Ball{
+				Color:    b.Color,
+				Radius:   b.Radius * PTM,
+				Position: b.Position.multiply(PTM),
+			}
+			wg.Done()
+		}(b, i)
 	}
+	wg.Wait()
 
 	// stream ball slice after movement computations
 	s.Balls <- convertedBalls
@@ -122,63 +116,43 @@ func (s *Simulation) run(delta time.Duration) {
 
 func (s *Simulation) computeCollisions(delta time.Duration) {
 	// clear past collisions
-	s.collisions = nil
+	s.collisions = []*Collision{}
 
 	// init collision reception channel
-	s.startCollisionReception()
+	cols := make(chan *Collision)
+	go func() {
+		for c := range cols {
+			s.collisions = append(s.collisions, c)
+		}
+	}()
 
 	// number of ball pairs
-	s.wg.Add(((len(s.balls) - 1) * len(s.balls)) / 2)
+	var wg sync.WaitGroup
+	wg.Add(((len(s.balls) - 1) * len(s.balls)) / 2)
 
 	// concurrently compute pairs of balls collisions
+	// TODO: use quad tree
 	for i, b1 := range s.balls {
 		for _, b2 := range s.balls[i+1:] {
 			go func(b1, b2 *Ball) {
-				if collision, ok := ballCollisionInFrame(b1, b2, delta); ok {
-					s.collisionsChan <- collision
+				if c, ok := collisionInFrame(b1, b2, delta); ok {
+					cols <- c
 				}
-				s.wg.Done()
+				wg.Done()
 			}(b1, b2)
 		}
 	}
 
-	s.wg.Wait()
-	close(s.collisionsChan)
+	wg.Wait()
+	close(cols)
 }
 
-func (s *Simulation) startCollisionReception() {
-	s.collisions = make(map[int]*Collision)
-	s.collisionsChan = make(chan *Collision)
-	go func() {
-		for c := range s.collisionsChan {
+type ByTime []*Collision
 
-			if s.collisions[c.b1.Id] == nil {
-				s.collisions[c.b1.Id] = c
-			}
+func (a ByTime) Len() int           { return len(a) }
+func (a ByTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByTime) Less(i, j int) bool { return a[i].moment < a[j].moment }
 
-			if s.collisions[c.b2.Id] == nil {
-				s.collisions[c.b2.Id] = c
-			}
-
-			b1M, b2M := s.collisions[c.b1.Id].moment, s.collisions[c.b2.Id].moment
-			cM := c.moment
-
-			if b1M < b2M {
-				delete(s.collisions, c.b2.Id)
-				if cM < b1M {
-					s.collisions[c.b1.Id] = c
-				}
-			} else if b2M < b1M {
-				delete(s.collisions, c.b1.Id)
-				if cM < b2M {
-					s.collisions[c.b2.Id] = c
-				}
-			}
-
-			// avoid doubles
-			if s.collisions[c.b1.Id] == s.collisions[c.b2.Id] {
-				delete(s.collisions, c.b2.Id)
-			}
-		}
-	}()
+func (s *Simulation) sortCollisions() {
+	sort.Sort(ByTime(s.collisions))
 }

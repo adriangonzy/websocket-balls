@@ -10,8 +10,8 @@ func init() {
 	rand.Seed(time.Now().Unix())
 }
 
-func randFloat(min, max int) float64 {
-	return rand.Float64()*float64(max-min) + float64(min)
+func randFloat(min, max float64) float64 {
+	return rand.Float64()*(max-min) + min
 }
 
 func randInt(min, max int) int {
