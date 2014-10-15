@@ -15,6 +15,14 @@ type Ball struct {
 	moved    time.Duration
 }
 
+func (b *Ball) X() float64 {
+	return b.Position.X
+}
+
+func (b *Ball) Y() float64 {
+	return b.Position.Y
+}
+
 func (b *Ball) String() string {
 	return fmt.Sprintf("%v", &b)
 }

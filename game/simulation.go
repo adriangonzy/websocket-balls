@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"github.com/adriangonzy/websocket-balls/quadtree"
 	"sort"
 	"sync"
 	"time"
@@ -15,10 +16,12 @@ const (
 
 	maxRadius   = 0.6 // meter
 	minRadius   = 0.6 // meter
-	maxVelocity = 25  // meter/s
+	maxVelocity = 50  // meter/s
 	minVelocity = -25 // meter/s
 	maxMass     = 10  // kg
 	minMass     = 1   // kg
+
+	searchArea = maxRadius * 10 * 5 // should use max velocity
 
 	frameRate = 30                                    // frames/s
 	frame     = (1000 / frameRate) * time.Millisecond // frame in ms
@@ -26,7 +29,7 @@ const (
 
 type Simulation struct {
 	balls      []*Ball
-	Balls      chan []*Ball
+	emit       chan [][]float64
 	done       chan bool
 	collisions []*Collision
 }
@@ -85,7 +88,7 @@ func (s *Simulation) run(delta time.Duration) {
 	}
 
 	// change to pixel unit
-	convertedBalls := make([]*Ball, len(s.balls))
+	compressedBalls := make([][]float64, len(s.balls))
 
 	// finish moving balls concurrently in frame
 	var wg sync.WaitGroup
@@ -100,18 +103,22 @@ func (s *Simulation) run(delta time.Duration) {
 			b.moved = 0
 
 			// change to pixel unit
-			convertedBalls[i] = &Ball{
-				Color:    b.Color,
-				Radius:   b.Radius * PTM,
-				Position: b.Position.multiply(PTM),
+			p := b.Position.multiply(PTM)
+
+			compressedBalls[i] = []float64{
+				p.X,
+				p.Y,
+				b.Radius,
+				b.Color,
 			}
+
 			wg.Done()
 		}(b, i)
 	}
 	wg.Wait()
 
 	// stream ball slice after movement computations
-	s.Balls <- convertedBalls
+	s.Balls <- compressedBalls
 }
 
 func (s *Simulation) computeCollisions(delta time.Duration) {
@@ -128,12 +135,26 @@ func (s *Simulation) computeCollisions(delta time.Duration) {
 
 	// number of ball pairs
 	var wg sync.WaitGroup
-	wg.Add(((len(s.balls) - 1) * len(s.balls)) / 2)
+
+	box := quadtree.Box{
+		canvasWidth / 2,
+		canvasHeight / 2,
+		canvasWidth / 2,
+		canvasHeight / 2,
+	}
+	q := quadtree.New(box, 10)
+
+	for _, b := range s.balls {
+		q.Insert(b)
+	}
 
 	// concurrently compute pairs of balls collisions
-	// TODO: use quad tree
-	for i, b1 := range s.balls {
-		for _, b2 := range s.balls[i+1:] {
+	for _, b1 := range s.balls {
+		area := quadtree.Box{b1.X(), b1.Y(), searchArea, searchArea}
+		neighbors := q.SearchArea(&area)
+		wg.Add(len(neighbors))
+		for _, n := range neighbors {
+			b2 := n.(*Ball)
 			go func(b1, b2 *Ball) {
 				if c, ok := collisionInFrame(b1, b2, delta); ok {
 					cols <- c

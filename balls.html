@@ -94,10 +94,10 @@
                 for (var i = 0; i < ballArray.length; i++) {
                     context.beginPath();
                     // draw ball using ball objects data.
-                    context.arc(ballArray[i].p.X, ballArray[i].p.Y, ballArray[i].Radius, 0, Math.PI * 2, false);
+                    context.arc(ballArray[i][0], ballArray[i][1], ballArray[i][2], 0, Math.PI * 2, false);
                     context.strokeStyle = "000000";
                     context.stroke();
-                    context.fillStyle = ballArray[i].Color;
+                    context.fillStyle = toHexString(ballArray[i][3]); // convert to hex string and prepend #
                     context.fill();
                     context.closePath();
                 }
