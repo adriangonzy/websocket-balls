@@ -5,6 +5,7 @@
 <head>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <meta charset="utf-8" />
+    <link href="slider.css" type="text/css" rel="stylesheet" />
     <title>Canvas</title>
 </head>
 
@@ -13,24 +14,43 @@
         Your Browser does not support the canvas tag
     </canvas>
 
+    <style>
+        .slider_c {
+            background: linear-gradient(90deg,  rgb(244, 180, 0), 
+                                                rgb(244, 180, 0) 34%, 
+                                                rgb(204, 204, 204) 34%, 
+                                                rgb(204, 204, 204));
+            display: block;
+            width: 300px;
+        }
+    </style>
+
     <button id="action">START</button>
-    <input id="numberOfBalls" type="number" min="1" max="20" />
+    <input id="numberOfBalls" type="range" min="0" max="250" value="25" step="1" class="slider_c" />
+    <input id="canvasHeight" type="range" min="600" max="2000" value="1000" step="100" class="slider_c">
+    <input id="canvasWidth" type="range" min="900" max="2000" value="1000" step="100" class="slider_c">
+    <input id="maxRadius" type="range" min="1" max="10" value="1" step="0.5" class="slider_c">
+    <input id="minRadius" type="range" min="1" max="10" value="1" step="0.5" class="slider_c">
+    <input id="maxVelocity" type="range" min="0" max="25" value="5" step="1" class="slider_c">
+    <input id="minVelocity" type="range" min="0" max="25" value="5" step="1" class="slider_c">
+    <input id="maxMass" type="range" min="0" max="250" value="5" step="1" class="slider_c">
+    <input id="minMass" type="range" min="0" max="10" value="5" step="1" class="slider_c">
+    <input id="frameRate" type="range" min="1" max="100" value="30" step="1" class="slider_c">
+
     <script>
     $(function() {
         var conn;
         var balls;
         var renderer;
         var canvas;
-        var canvasHeigth = 1200;
-        var canvasWidth = 1800;
         var context;
 
         function initialiseCanvas() {
             //find the canvas element using its id attribute.
             canvas = document.getElementById('canvas');
             //once canvas is created, create the simulation passing the width and height of canvas
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeigth;
+            canvas.width = $("#canvasWidth").val();
+            canvas.height = $("#canvasHeigth").val();
             renderer = new Renderer('#fff'); // takes colour for canvas.
 
             if (!canvas) {
@@ -109,7 +129,18 @@
         var startGame = function(event) {
             console.log("SIMULATION START")
             $(this).unbind("click");
-            $.get("/simulation/start?balls_count=" + $("#numberOfBalls").val());
+            var configuration = {
+                canvasHeigth: $("#canvasHeigth").val(),
+                canvasWidth: $("#canvasWidth").val(),
+                maxRadius: $("#maxRadius").val(),
+                minRadius: $("#minRadius").val(),
+                maxVelocity: $("#maxVelocity").val(),
+                minVelocity: $("#minVelocity").val(),
+                maxMass: $("#maxMass").val(),
+                minMass: $("#minMass").val(),
+                frameRate: $("#frameRate").val()
+            };
+            $.post("/simulation/start?", configuration);
             $(this).click(stopGame);
             $(this).html("STOP");
         };

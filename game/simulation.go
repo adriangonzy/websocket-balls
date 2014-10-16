@@ -9,43 +9,49 @@ import (
 )
 
 const (
-	canvasHeight = 1200 // pixels
-	canvasWidth  = 1800 // pixels
-
-	PTM = 10 // pixel to meter ratio
-
-	maxRadius   = 1   // meter
-	minRadius   = 0.1 // meter
-	maxVelocity = 50  // meter/s
-	minVelocity = -25 // meter/s
-	maxMass     = 10  // kg
-	minMass     = 1   // kg
-
-	searchArea = maxRadius * 10 * 5 // should use max velocity
-
-	frameRate = 30                                    // frames/s
-	frame     = (1000 / frameRate) * time.Millisecond // frame in ms
+	PTM              = 10      // pixel to meter ratio
+	searchAreaFactor = PTM * 5 // should use max velocity
 )
 
+type Config struct {
+	CanvasHeight float64 `json: canvasHeight` // pixels
+	CanvasWidth  float64 `json: canvasWidth`  // pixels
+	MaxRadius    float64 `json: maxRadius`    // meter
+	MinRadius    float64 `json: minRadius`    // meter
+	MaxVelocity  float64 `json: maxVelocity`  // meter/s
+	MinVelocity  float64 `json: minVelocity`  // meter/s
+	MaxMass      float64 `json: maxMass`      // kg
+	MinMass      float64 `json: minMass`      // kg
+
+	ballCount int   `json: numberOfBalls`
+	FrameRate int   `json: framerate` // frames/s
+	Frame     int64 // frame in ms
+}
+
+func (c *Config) frame() time.Duration {
+	return (1000 / c.frameRate) * time.Millisecond
+}
+
 type Simulation struct {
+	config     *Config
 	balls      []*Ball
 	Emit       chan [][]interface{}
 	done       chan bool
 	collisions []*Collision
 }
 
-func NewSimulation(ballCount int) *Simulation {
+func NewSimulation(c *Config) *Simulation {
 	fmt.Println("NEW SIMULATION balls:", ballCount)
 
 	//init random balls array
 	//TODO: uniformly spread balls accross the canvas for avoiding early ball collisions
-	balls := make([]*Ball, ballCount)
+	balls := make([]*Ball, c.ballCount)
 	for i := range balls {
 		balls[i] = NewRandomBall()
 		balls[i].Id = i
 	}
 
-	return &Simulation{balls: balls, Emit: make(chan [][]interface{}), done: make(chan bool)}
+	return &Simulation{balls: balls, config: c, Emit: make(chan [][]interface{}), done: make(chan bool)}
 }
 
 func (s *Simulation) Start() {
@@ -59,7 +65,7 @@ func (s *Simulation) Start() {
 				// TODO: block until current frame is finished
 				frames = frames + 1
 				fmt.Println("frame", frames)
-				s.run(frame)
+				s.run(s.frame)
 			case <-s.done:
 				return
 			}
