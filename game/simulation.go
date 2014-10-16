@@ -9,13 +9,13 @@ import (
 )
 
 const (
-	canvasHeight = 600 // pixels
-	canvasWidth  = 900 // pixels
+	canvasHeight = 1200 // pixels
+	canvasWidth  = 1800 // pixels
 
 	PTM = 10 // pixel to meter ratio
 
-	maxRadius   = 0.6 // meter
-	minRadius   = 0.6 // meter
+	maxRadius   = 1   // meter
+	minRadius   = 0.1 // meter
 	maxVelocity = 50  // meter/s
 	minVelocity = -25 // meter/s
 	maxMass     = 10  // kg
@@ -29,7 +29,7 @@ const (
 
 type Simulation struct {
 	balls      []*Ball
-	emit       chan [][]float64
+	Emit       chan [][]interface{}
 	done       chan bool
 	collisions []*Collision
 }
@@ -45,17 +45,20 @@ func NewSimulation(ballCount int) *Simulation {
 		balls[i].Id = i
 	}
 
-	return &Simulation{balls: balls, Balls: make(chan []*Ball), done: make(chan bool)}
+	return &Simulation{balls: balls, Emit: make(chan [][]interface{}), done: make(chan bool)}
 }
 
 func (s *Simulation) Start() {
 	fmt.Println("START SIMULATION")
 	ticker := time.NewTicker(frame)
+	var frames int
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
 				// TODO: block until current frame is finished
+				frames = frames + 1
+				fmt.Println("frame", frames)
 				s.run(frame)
 			case <-s.done:
 				return
@@ -67,11 +70,12 @@ func (s *Simulation) Start() {
 func (s *Simulation) Stop() {
 	fmt.Println("STOP SIMULATION")
 	s.done <- true
-	close(s.Balls)
+	close(s.Emit)
 }
 
 // Compute simulation balls movement during one frame
 func (s *Simulation) run(delta time.Duration) {
+	start := time.Now()
 
 	s.computeCollisions(delta)
 	s.sortCollisions()
@@ -88,7 +92,7 @@ func (s *Simulation) run(delta time.Duration) {
 	}
 
 	// change to pixel unit
-	compressedBalls := make([][]float64, len(s.balls))
+	compressedBalls := make([][]interface{}, len(s.balls))
 
 	// finish moving balls concurrently in frame
 	var wg sync.WaitGroup
@@ -105,10 +109,10 @@ func (s *Simulation) run(delta time.Duration) {
 			// change to pixel unit
 			p := b.Position.multiply(PTM)
 
-			compressedBalls[i] = []float64{
+			compressedBalls[i] = []interface{}{
 				p.X,
 				p.Y,
-				b.Radius,
+				b.Radius * PTM,
 				b.Color,
 			}
 
@@ -118,7 +122,8 @@ func (s *Simulation) run(delta time.Duration) {
 	wg.Wait()
 
 	// stream ball slice after movement computations
-	s.Balls <- compressedBalls
+	s.Emit <- compressedBalls
+	fmt.Println(time.Since(start))
 }
 
 func (s *Simulation) computeCollisions(delta time.Duration) {
@@ -151,6 +156,7 @@ func (s *Simulation) computeCollisions(delta time.Duration) {
 	// concurrently compute pairs of balls collisions
 	for _, b1 := range s.balls {
 		area := quadtree.Box{b1.X(), b1.Y(), searchArea, searchArea}
+		// this could be optimized
 		neighbors := q.SearchArea(&area)
 		wg.Add(len(neighbors))
 		for _, n := range neighbors {

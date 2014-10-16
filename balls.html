@@ -21,8 +21,8 @@
         var balls;
         var renderer;
         var canvas;
-        var canvasHeigth = 600;
-        var canvasWidth = 900;
+        var canvasHeigth = 1200;
+        var canvasWidth = 1800;
         var context;
 
         function initialiseCanvas() {
@@ -31,7 +31,7 @@
             //once canvas is created, create the simulation passing the width and height of canvas
             canvas.width = canvasWidth;
             canvas.height = canvasHeigth;
-            renderer = new Renderer('#CAE1FF'); // takes colour for canvas.
+            renderer = new Renderer('#fff'); // takes colour for canvas.
 
             if (!canvas) {
                 alert('Error: cannot find the canvas element!');
@@ -95,9 +95,9 @@
                     context.beginPath();
                     // draw ball using ball objects data.
                     context.arc(ballArray[i][0], ballArray[i][1], ballArray[i][2], 0, Math.PI * 2, false);
-                    context.strokeStyle = "000000";
+                    context.strokeStyle = ballArray[i][3];
                     context.stroke();
-                    context.fillStyle = toHexString(ballArray[i][3]); // convert to hex string and prepend #
+                    context.fillStyle = ballArray[i][3];
                     context.fill();
                     context.closePath();
                 }

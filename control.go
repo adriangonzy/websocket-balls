@@ -42,13 +42,13 @@ func startSimulation(w http.ResponseWriter, r *http.Request) {
 	sim.Start()
 
 	go func() {
-		for balls := range sim.Balls {
+		for balls := range sim.Emit {
 			conn.Send <- serializeBalls(balls)
 		}
 	}()
 }
 
-func serializeBalls(balls []*game.Ball) []byte {
+func serializeBalls(balls [][]interface{}) []byte {
 	b, e := json.Marshal(balls)
 	if e != nil {
 		fmt.Errorf("%v", e)
