@@ -14,24 +14,48 @@
         Your Browser does not support the canvas tag
     </canvas>
 
-    <button id="action">START</button>
-
     <script>
     $(function() {
-        var conn;
-        var config;
-        var balls;
-        var renderer;
-        var canvas;
-        var context;
+       
+        var Config = function() {
+            this.balls = 250;
+            this.canvasHeight = 900;
+            this.canvasWidth = 600;
+            this.maxRadius = 1;
+            this.minRadius = 1;
+            this.maxVelocity = 10;
+            this.minVelocity = 0.5;
+            this.maxMass = 5;
+            this.minMass = 1;
+            this.frameRate = 30;
+            this.start = startGame;
+            this.stop = stopGame;
+        };
 
-        function initialiseCanvas() {
+        var initControls = function() {
+            var config = new Config();
+             var gui = new dat.GUI();
+             gui.add(config, 'balls', 2, 1000);
+             gui.add(config, 'canvasHeight', 10, 1000);
+             gui.add(config, 'canvasWidth', 10, 1000);
+             gui.add(config, 'maxRadius', 0.01, 10);
+             gui.add(config, 'minRadius', 0.01, 10);
+             gui.add(config, 'maxVelocity', 0, 10);
+             gui.add(config, 'minVelocity', 0, 10);
+             gui.add(config, 'maxMass', 1, 1000);
+             gui.add(config, 'minMass', 1, 1000);
+             gui.add(config, 'frameRate', 1, 100);
+             gui.add(config, 'start')
+             gui.add(config, 'stop')
+             return config;
+        };
+
+        function initialiseCanvas(width, height) {
             //find the canvas element using its id attribute.
             canvas = document.getElementById('canvas');
             //once canvas is created, create the simulation passing the width and height of canvas
-            canvas.width = parseInt($("#canvasWidth").val());
-            canvas.height = parseInt($("#canvasHeight").val());
-            renderer = new Renderer('#fff'); // takes colour for canvas.
+            canvas.width = width;
+            canvas.height = height;
 
             if (!canvas) {
                 alert('Error: cannot find the canvas element!');
@@ -47,7 +71,7 @@
                 return;
             }
             console.log("CANVAS INITIALIZED");
-            connectToWs();
+            return context;
         }
 
         function connectToWs() {
@@ -65,11 +89,28 @@
             } else {
                 console.log("Your browser does not support WebSockets");
             }
-
-            $("#action").click(startGame);
         }
 
-        var Renderer = (function(Context) {
+        var startGame = function() {
+            console.log("SIMULATION START")
+            $.ajax({
+                url: "/simulation/start",
+                type: 'POST',
+                dataType: 'json',
+                data: JSON.stringify(config),
+                contentType: 'application/json; charset=utf-8',
+                success: function() {
+                    console.log("Started !!")
+                }
+            });
+        };
+
+        var stopGame = function(event) {
+            console.log("SIMULATION STOP")
+            $.get("/simulation/stop");
+        };
+
+        var Renderer = (function() {
             var canvasColour;
 
             function Renderer(inCanvasColour) {
@@ -102,66 +143,20 @@
                     context.closePath();
                 }
             }
-
             return Renderer;
         })();
 
-        var Config = function() {
-            this.balls = 250;
-            this.canvasHeight = 900;
-            this.canvasWidth = 600;
-            this.maxRadius = 1;
-            this.minRadius = 1;
-            this.maxVelocity = 10;
-            this.minVelocity = 0.5;
-            this.maxMass = 5;
-            this.minMass = 1;
-            this.frameRate = 30;
-        };
+        var conn;
+        var config;
+        var balls;
+        var renderer;
+        var canvas;
+        var context;
 
-        var initControls = function() {
-            var config = new Config();
-             var gui = new dat.GUI();
-             gui.add(config, 'balls', 2, 1000);
-             gui.add(config, 'canvasHeight', 10, 1000);
-             gui.add(config, 'canvasWidth', 10, 1000);
-             gui.add(config, 'maxRadius', 0.01, 10);
-             gui.add(config, 'minRadius', 0.01, 10)
-             gui.add(config, 'maxVelocity', 0, 10)
-             gui.add(config, 'minVelocity', 0, 10)
-             gui.add(config, 'maxMass', 1, 1000)
-             gui.add(config, 'minMass', 1, 1000)
-             gui.add(config, 'frameRate', 1, 100)
-             return config;
-        }
-
-        var startGame = function(event) {
-            console.log("SIMULATION START")
-            $(this).unbind("click");
-            $.ajax({
-                url: "/simulation/start",
-                type: 'POST',
-                dataType: 'json',
-                data: JSON.stringify(config),
-                contentType: 'application/json; charset=utf-8',
-                success: function() {
-                    console.log("started !!")
-                }
-            });
-            $(this).click(stopGame);
-            $(this).html("STOP");
-        };
-
-        var stopGame = function(event) {
-            console.log("SIMULATION STOP")
-            $(this).unbind("click");
-            $.get("/simulation/stop");
-            $(this).click(startGame);
-            $(this).html("START");
-        };
-
-        initialiseCanvas();
-        config = initControls();
+        var config = initControls();
+        var context = initialiseCanvas(config.canvasWidth, config.canvasHeight);
+        var renderer = new Renderer('#fff'); // takes colour for canvas.
+        connectToWs();
     });
     </script>
 </body>
