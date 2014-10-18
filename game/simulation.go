@@ -10,22 +10,21 @@ import (
 
 const (
 	PTM              = 10      // pixel to meter ratio
-	searchAreaFactor = PTM * 4 // should use max velocity
+	searchAreaFactor = PTM * 5 // should use max velocity
 )
 
 type Config struct {
-	CanvasHeight float64 `json: canvasHeight,string` // pixels
-	CanvasWidth  float64 `json: canvasWidth,string`  // pixels
-	MaxRadius    float64 `json: maxRadius,string`    // meter
-	MinRadius    float64 `json: minRadius,string`    // meter
-	MaxVelocity  float64 `json: maxVelocity,string`  // meter/s
-	MinVelocity  float64 `json: minVelocity,string`  // meter/s
-	MaxMass      float64 `json: maxMass,string`      // kg
-	MinMass      float64 `json: minMass,string`      // kg
-
-	BallCount int           // balls
-	FrameRate int           `json: frameRate,string` // frames/s
-	Frame     time.Duration // frame in ms
+	CanvasHeight float64 `json: canvasHeight` // pixels
+	CanvasWidth  float64 `json: canvasWidth`  // pixels
+	MaxRadius    float64 `json: maxRadius`    // meter
+	MinRadius    float64 `json: minRadius`    // meter
+	MaxVelocity  float64 `json: maxVelocity`  // meter/s
+	MinVelocity  float64 `json: minVelocity`  // meter/s
+	MaxMass      float64 `json: maxMass`      // kg
+	MinMass      float64 `json: minMass`      // kg
+	FrameRate    int     `json: frameRate`    // frames/s
+	BallCount    int
+	Frame        time.Duration // frame in ms
 }
 
 type Simulation struct {

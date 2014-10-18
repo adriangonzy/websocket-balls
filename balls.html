@@ -17,80 +17,6 @@
     <script>
     $(function() {
        
-        var Config = function() {
-            this.balls = 250;
-            this.canvasHeight = 900;
-            this.canvasWidth = 600;
-            this.maxRadius = 1;
-            this.minRadius = 1;
-            this.maxVelocity = 10;
-            this.minVelocity = 0.5;
-            this.maxMass = 5;
-            this.minMass = 1;
-            this.frameRate = 30;
-            this.start = startGame;
-            this.stop = stopGame;
-        };
-
-        var initControls = function() {
-            var config = new Config();
-             var gui = new dat.GUI();
-             gui.add(config, 'balls', 2, 1000);
-             gui.add(config, 'canvasHeight', 10, 1000);
-             gui.add(config, 'canvasWidth', 10, 1000);
-             gui.add(config, 'maxRadius', 0.01, 10);
-             gui.add(config, 'minRadius', 0.01, 10);
-             gui.add(config, 'maxVelocity', 0, 10);
-             gui.add(config, 'minVelocity', 0, 10);
-             gui.add(config, 'maxMass', 1, 1000);
-             gui.add(config, 'minMass', 1, 1000);
-             gui.add(config, 'frameRate', 1, 100);
-             gui.add(config, 'start')
-             gui.add(config, 'stop')
-             return config;
-        };
-
-        function initialiseCanvas(width, height) {
-            //find the canvas element using its id attribute.
-            canvas = document.getElementById('canvas');
-            //once canvas is created, create the simulation passing the width and height of canvas
-            canvas.width = width;
-            canvas.height = height;
-
-            if (!canvas) {
-                alert('Error: cannot find the canvas element!');
-                return;
-            }
-            if (!canvas.getContext) {
-                alert('Error: no canvas.getContent!');
-                return;
-            }
-            context = canvas.getContext('2d');
-            if (!context) {
-                alert('Error: failed to getContent');
-                return;
-            }
-            console.log("CANVAS INITIALIZED");
-            return context;
-        }
-
-        function connectToWs() {
-            if (window["WebSocket"]) {
-                conn = new WebSocket("ws://localhost:8080/ws");
-                conn.onclose = function(evt) {
-                    console.log("connection closed");
-                }
-                conn.onmessage = function(evt) {
-                    console.log("Msg received : " + evt.data);
-                    balls = JSON.parse(evt.data)
-                    if (balls.length > 1)
-                        renderer.draw(context, balls);
-                }
-            } else {
-                console.log("Your browser does not support WebSockets");
-            }
-        }
-
         var startGame = function() {
             console.log("SIMULATION START")
             $.ajax({
@@ -109,6 +35,76 @@
             console.log("SIMULATION STOP")
             $.get("/simulation/stop");
         };
+
+        var Config = function() {
+            this.BallCount = 250;
+            this.canvasHeight = 900;
+            this.canvasWidth = 600;
+            this.maxRadius = 1;
+            this.minRadius = 1;
+            this.maxVelocity = 10;
+            this.minVelocity = 0.5;
+            this.maxMass = 5;
+            this.minMass = 1;
+            this.frameRate = 30;
+            this.start = startGame;
+            this.stop = stopGame;
+        };
+
+        var initControls = function() {
+            var config = new Config();
+             var gui = new dat.GUI();
+             gui.add(config, 'BallCount', 2, 1000).step(1);
+             gui.add(config, 'frameRate', 1, 100).step(1);
+             gui.add(config, 'canvasHeight', 10, 1000).step(100);
+             gui.add(config, 'canvasWidth', 10, 1000).step(100);
+             gui.add(config, 'maxRadius', 0.01, 10).step(0.1);
+             gui.add(config, 'minRadius', 0.01, 10).step(0.1);
+             gui.add(config, 'maxVelocity', 0, 10).step(0.1);
+             gui.add(config, 'minVelocity', 0, 10).step(0.1);
+             gui.add(config, 'maxMass', 1, 1000).step(0.1);
+             gui.add(config, 'minMass', 1, 1000).step(0.1);
+             gui.add(config, 'start');
+             gui.add(config, 'stop');
+             return config;
+        };
+
+        function initialiseCanvas(width, height) {
+            //find the canvas element using its id attribute.
+            canvas = document.getElementById('canvas');
+            //once canvas is created, create the simulation passing the width and height of canvas
+            canvas.width = width;
+            canvas.height = height;
+
+            if (!canvas) {
+                alert('Error: cannot find the canvas element!');
+                return;
+            }
+            if (!canvas.getContext) {
+                alert('Error: no canvas.getContent!');
+                return;
+            }
+            console.log("CANVAS INITIALIZED");
+            return canvas;
+        }
+
+        function connectToWs() {
+            if (window["WebSocket"]) {
+                conn = new WebSocket("ws://localhost:8080/ws");
+                conn.onclose = function(evt) {
+                    console.log("connection closed");
+                }
+                conn.onmessage = function(evt) {
+                    console.log("Msg received : " + evt.data);
+                    var balls = JSON.parse(evt.data)
+                    if (balls.length > 1)
+                        renderer.draw(context, balls);
+                }
+                return conn;
+            } else {
+                console.log("Your browser does not support WebSockets");
+            }
+        }
 
         var Renderer = (function() {
             var canvasColour;
@@ -146,17 +142,15 @@
             return Renderer;
         })();
 
-        var conn;
-        var config;
-        var balls;
-        var renderer;
-        var canvas;
-        var context;
-
         var config = initControls();
-        var context = initialiseCanvas(config.canvasWidth, config.canvasHeight);
+        var canvas = initialiseCanvas(config.canvasWidth, config.canvasHeight);
+        var context = canvas.getContext('2d');
+        if (!context) {
+            alert('Error: failed to getContent');
+            return;
+        }
         var renderer = new Renderer('#fff'); // takes colour for canvas.
-        connectToWs();
+        var conn = connectToWs();
     });
     </script>
 </body>
