@@ -15,13 +15,13 @@ func (c *Collision) String() string {
 	return fmt.Sprintf("%d", c.moment)
 }
 
-func (b *Ball) wallCollision() {
+func (b *Ball) wallCollision(width, height float64) {
 	r := b.Radius
 	// horizontal movement collision
 	switch {
-	case b.Position.X+r >= canvasWidth/PTM && b.velocity.X >= 0:
+	case b.Position.X+r >= width/PTM && b.velocity.X >= 0:
 		b.velocity.X = -b.velocity.X
-		b.Position.X = canvasWidth/PTM - r
+		b.Position.X = width/PTM - r
 	case b.Position.X-r <= 0 && b.velocity.X <= 0:
 		b.velocity.X = -b.velocity.X
 		b.Position.X = r
@@ -29,9 +29,9 @@ func (b *Ball) wallCollision() {
 
 	// vertical movement collision
 	switch {
-	case b.Position.Y+r >= canvasHeight/PTM && b.velocity.Y >= 0:
+	case b.Position.Y+r >= height/PTM && b.velocity.Y >= 0:
 		b.velocity.Y = -b.velocity.Y
-		b.Position.Y = canvasHeight/PTM - r
+		b.Position.Y = height/PTM - r
 	case b.Position.Y-r <= 0 && b.velocity.Y <= 0:
 		b.velocity.Y = -b.velocity.Y
 		b.Position.Y = r

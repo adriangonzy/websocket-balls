@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"strconv"
 
 	"encoding/json"
 	"net/http"
@@ -21,6 +20,17 @@ func bindSimulationControls() {
 	http.HandleFunc("/ws", serveWs)
 }
 
+func getConfig(req *http.Request) *game.Config {
+	decoder := json.NewDecoder(req.Body)
+	fmt.Printf("request body %#v \n", req.Body)
+	var t game.Config
+	err := decoder.Decode(&t)
+	if err != nil {
+		panic(err)
+	}
+	return &t
+}
+
 func startSimulation(w http.ResponseWriter, r *http.Request) {
 
 	if conn == nil {
@@ -29,16 +39,10 @@ func startSimulation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// parse query param
-	ballsCount, err := strconv.Atoi(r.URL.Query().Get("balls_count"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		log.Fatal(err.Error())
-		return
-	}
+	c := getConfig(r)
 
 	// init simulation with given number of balls
-	sim = game.NewSimulation(ballsCount)
+	sim = game.NewSimulation(c)
 	sim.Start()
 
 	go func() {

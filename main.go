@@ -28,14 +28,14 @@ func serveSlider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "style/css; charset=utf-8")
-	http.ServeFile(w, r, "slider.css")
+	http.ServeFile(w, r, "dat.gui.js")
 }
 
 func main() {
 	flag.Parse()
 
 	http.HandleFunc("/balls", serveCanvas)
-	http.HandleFunc("/slider.css", serveSlider)
+	http.HandleFunc("/dat.gui.js", serveSlider)
 	bindSimulationControls()
 
 	err := http.ListenAndServe(*addr, nil)

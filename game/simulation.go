@@ -10,26 +10,22 @@ import (
 
 const (
 	PTM              = 10      // pixel to meter ratio
-	searchAreaFactor = PTM * 5 // should use max velocity
+	searchAreaFactor = PTM * 4 // should use max velocity
 )
 
 type Config struct {
-	CanvasHeight float64 `json: canvasHeight` // pixels
-	CanvasWidth  float64 `json: canvasWidth`  // pixels
-	MaxRadius    float64 `json: maxRadius`    // meter
-	MinRadius    float64 `json: minRadius`    // meter
-	MaxVelocity  float64 `json: maxVelocity`  // meter/s
-	MinVelocity  float64 `json: minVelocity`  // meter/s
-	MaxMass      float64 `json: maxMass`      // kg
-	MinMass      float64 `json: minMass`      // kg
+	CanvasHeight float64 `json: canvasHeight,string` // pixels
+	CanvasWidth  float64 `json: canvasWidth,string`  // pixels
+	MaxRadius    float64 `json: maxRadius,string`    // meter
+	MinRadius    float64 `json: minRadius,string`    // meter
+	MaxVelocity  float64 `json: maxVelocity,string`  // meter/s
+	MinVelocity  float64 `json: minVelocity,string`  // meter/s
+	MaxMass      float64 `json: maxMass,string`      // kg
+	MinMass      float64 `json: minMass,string`      // kg
 
-	ballCount int   `json: numberOfBalls`
-	FrameRate int   `json: framerate` // frames/s
-	Frame     int64 // frame in ms
-}
-
-func (c *Config) frame() time.Duration {
-	return (1000 / c.frameRate) * time.Millisecond
+	BallCount int           // balls
+	FrameRate int           `json: frameRate,string` // frames/s
+	Frame     time.Duration // frame in ms
 }
 
 type Simulation struct {
@@ -41,22 +37,28 @@ type Simulation struct {
 }
 
 func NewSimulation(c *Config) *Simulation {
-	fmt.Println("NEW SIMULATION balls:", ballCount)
+	c.Frame = time.Duration(1000/c.FrameRate) * time.Millisecond
+	fmt.Printf("NEW SIMULATION %#v", c)
 
 	//init random balls array
 	//TODO: uniformly spread balls accross the canvas for avoiding early ball collisions
-	balls := make([]*Ball, c.ballCount)
+	balls := make([]*Ball, c.BallCount)
 	for i := range balls {
-		balls[i] = NewRandomBall()
+		balls[i] = NewRandomBall(c)
 		balls[i].Id = i
 	}
 
-	return &Simulation{balls: balls, config: c, Emit: make(chan [][]interface{}), done: make(chan bool)}
+	return &Simulation{
+		balls:  balls,
+		config: c,
+		Emit:   make(chan [][]interface{}),
+		done:   make(chan bool),
+	}
 }
 
 func (s *Simulation) Start() {
 	fmt.Println("START SIMULATION")
-	ticker := time.NewTicker(frame)
+	ticker := time.NewTicker(s.config.Frame)
 	var frames int
 	go func() {
 		for {
@@ -65,7 +67,7 @@ func (s *Simulation) Start() {
 				// TODO: block until current frame is finished
 				frames = frames + 1
 				fmt.Println("frame", frames)
-				s.run(s.frame)
+				s.run(s.config.Frame)
 			case <-s.done:
 				return
 			}
@@ -107,7 +109,7 @@ func (s *Simulation) run(delta time.Duration) {
 	for i, b := range s.balls {
 		go func(b *Ball, i int) {
 			// TODO: wall collision computed the same way as ball collision
-			b.wallCollision()
+			b.wallCollision(s.config.CanvasWidth, s.config.CanvasHeight)
 
 			b.move(delta - b.moved)
 			b.moved = 0
@@ -148,10 +150,10 @@ func (s *Simulation) computeCollisions(delta time.Duration) {
 	var wg sync.WaitGroup
 
 	box := quadtree.Box{
-		canvasWidth / 2,
-		canvasHeight / 2,
-		canvasWidth / 2,
-		canvasHeight / 2,
+		s.config.CanvasWidth / 2,
+		s.config.CanvasHeight / 2,
+		s.config.CanvasWidth / 2,
+		s.config.CanvasHeight / 2,
 	}
 	q := quadtree.New(box, 10)
 
@@ -161,6 +163,7 @@ func (s *Simulation) computeCollisions(delta time.Duration) {
 
 	// concurrently compute pairs of balls collisions
 	for _, b1 := range s.balls {
+		searchArea := s.config.MaxRadius * searchAreaFactor
 		area := quadtree.Box{b1.X(), b1.Y(), searchArea, searchArea}
 		// this could be optimized
 		neighbors := q.SearchArea(&area)

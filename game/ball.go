@@ -34,12 +34,12 @@ func (b *Ball) move(delta time.Duration) {
 	b.moved += delta
 }
 
-func NewRandomBall() *Ball {
+func NewRandomBall(c *Config) *Ball {
 	return &Ball{
-		Position: &vector{randFloat(0, canvasWidth/PTM), randFloat(0, canvasHeight/PTM)},
-		velocity: &vector{randFloat(minVelocity, maxVelocity), randFloat(minVelocity, maxVelocity)},
-		Radius:   randFloat(minRadius, maxRadius),
-		mass:     randFloat(minMass, maxMass),
+		Position: &vector{randFloat(0, c.CanvasWidth/PTM), randFloat(0, c.CanvasHeight/PTM)},
+		velocity: &vector{randFloat(c.MinVelocity, c.MaxVelocity), randFloat(c.MinVelocity, c.MaxVelocity)},
+		Radius:   randFloat(c.MinRadius, c.MaxRadius),
+		mass:     randFloat(c.MinMass, c.MaxMass),
 		Color:    randomColor(),
 	}
 }
