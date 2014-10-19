@@ -66,7 +66,7 @@ func (s *Simulation) Start() {
 				// TODO: block until current frame is finished
 				frames = frames + 1
 				fmt.Println("frame", frames)
-				s.run(s.config.Frame)
+				s.run(s.config.Frame, 5)
 			case <-s.done:
 				return
 			}
@@ -81,56 +81,49 @@ func (s *Simulation) Stop() {
 }
 
 // Compute simulation balls movement during one frame
-func (s *Simulation) run(delta time.Duration) {
+func (s *Simulation) run(delta time.Duration, times int) {
 	start := time.Now()
+	fmt.Println(delta, "delta")
+	frame := delta
+	for i := 0; i < times; i++ {
+		fmt.Println(i, "sub-frame")
+		s.computeCollisions(delta)
+		fmt.Println(time.Since(start), "compute collisions")
+		fmt.Println(len(s.collisions), "number of collisions")
 
-	s.computeCollisions(delta)
-	s.sortCollisions()
-
-	collided := make(map[*Ball]bool)
-
-	// compute ball movement given collision slice
-	for _, c := range s.collisions {
-		if collided[c.b1] || collided[c.b2] {
-			continue
+		if len(s.collisions) == 0 {
+			break
 		}
-		collided[c.b1], collided[c.b2] = true, true
-		c.reaction()
-	}
 
-	// change to pixel unit
+		s.sortCollisions()
+		fmt.Println(time.Since(start), "sort collisions")
+		s.moveAfterCollisions()
+		fmt.Println(time.Since(start), "move after collisions")
+
+		last := s.collisions[len(s.collisions)-1:][0].moment
+		s.finishMoving(last, nil)
+		fmt.Println(time.Since(start), "finish moving balls")
+		delta = delta - last
+	}
+	pipe := make(chan *Ball)
+	s.finishMoving(frame, pipe)
+	// change to pixel unit and compress sent data
 	compressedBalls := make([][]interface{}, len(s.balls))
+	for b := range pipe {
+		p := b.Position.multiply(PTM)
+		compressedBalls = append(compressedBalls, []interface{}{
+			p.X,
+			p.Y,
+			b.Radius * PTM,
+			b.Color,
+		})
 
-	// finish moving balls concurrently in frame
-	var wg sync.WaitGroup
-	wg.Add(len(s.balls))
-
-	for i, b := range s.balls {
-		go func(b *Ball, i int) {
-			// TODO: wall collision computed the same way as ball collision
-			b.wallCollision(s.config.CanvasWidth, s.config.CanvasHeight)
-
-			b.move(delta - b.moved)
-			b.moved = 0
-
-			// change to pixel unit
-			p := b.Position.multiply(PTM)
-
-			compressedBalls[i] = []interface{}{
-				p.X,
-				p.Y,
-				b.Radius * PTM,
-				b.Color,
-			}
-
-			wg.Done()
-		}(b, i)
 	}
-	wg.Wait()
+	fmt.Println(time.Since(start), "compress balls")
 
 	// stream ball slice after movement computations
 	s.Emit <- compressedBalls
-	fmt.Println(time.Since(start))
+	fmt.Println(time.Since(start), "TOTAL")
 }
 
 func (s *Simulation) computeCollisions(delta time.Duration) {
@@ -180,6 +173,40 @@ func (s *Simulation) computeCollisions(delta time.Duration) {
 
 	wg.Wait()
 	close(cols)
+}
+
+func (s *Simulation) moveAfterCollisions() {
+	collided := make(map[*Ball]bool)
+	// compute ball movement given collision slice
+	for _, c := range s.collisions {
+		if collided[c.b1] || collided[c.b2] {
+			continue
+		}
+		collided[c.b1], collided[c.b2] = true, true
+		// move balls to collision time
+		c.b1.move(c.moment)
+		c.b2.move(c.moment)
+		c.reaction()
+	}
+}
+
+func (s *Simulation) finishMoving(delta time.Duration, pipe chan *Ball) {
+	// finish moving balls concurrently in frame
+	var wg sync.WaitGroup
+	wg.Add(len(s.balls))
+
+	for i, b := range s.balls {
+		go func(b *Ball, i int) {
+			// TODO: wall collision computed the same way as ball collision
+			b.wallCollision(s.config.CanvasWidth, s.config.CanvasHeight)
+			b.move(delta - b.moved)
+			if pipe != nil {
+				pipe <- b
+			}
+			wg.Done()
+		}(b, i)
+	}
+	wg.Wait()
 }
 
 type ByTime []*Collision

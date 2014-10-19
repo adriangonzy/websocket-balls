@@ -86,10 +86,6 @@ func collisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
 
 func (c *Collision) reaction() {
 	b1, b2 := c.b1, c.b2
-	// move balls to collision time
-	b1.move(c.moment)
-	b2.move(c.moment)
-
 	//fmt.Println("COLLISION between", b1.Id, b2.Id)
 	normVector := &vector{b2.Position.X - b1.Position.X, b2.Position.Y - b1.Position.Y}
 	normVector.Normalise()
