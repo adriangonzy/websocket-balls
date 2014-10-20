@@ -38,12 +38,27 @@ func (b *Ball) wallCollision(width, height float64) {
 	}
 }
 
-func collisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
-	// avoid molecule like structures (glued balls)
-	if (b1.Radius + b2.Radius) > b1.Position.distance(b2.Position) {
-		return nil, false
-	}
+func approaching(b1, b2 *Ball) bool {
+	d1 := b1.Position.distance(b2.Position)
+	b1.move(time.Millisecond)
+	b2.move(time.Millisecond)
+	d2 := b1.Position.distance(b2.Position)
+	b1.move(-time.Millisecond)
+	b2.move(-time.Millisecond)
+	return d1 >= d2
+}
 
+func collisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
+
+	/*
+		TODO:
+			- Movement before collision should be done here.
+			- negative solutions have to be sorted and the most recent counted as collision
+			  if balls are intersecting. test this
+			- The rest of the algo will work by means of sorting and correcting movement.
+	*/
+
+	// avoid molecule like structures (glued balls)
 	V1V2 := &vector{b2.velocity.X - b1.velocity.X, b2.velocity.Y - b1.velocity.Y}
 	C1C2 := &vector{b2.Position.X - b1.Position.X, b2.Position.Y - b1.Position.Y}
 	rTotal := b1.Radius + b2.Radius
@@ -69,15 +84,21 @@ func collisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
 	case 0 < t1 && 0 < t2:
 		t = math.Min(t1, t2)
 	case 0 < t1 && t2 < 0:
+		if b1.intersecting(b2) {
+			t = t2
+		}
 		t = t1
 	case 0 < t2 && t1 < 0:
+		if b1.intersecting(b2) {
+			t = t1
+		}
 		t = t2
 	}
 
 	// collision time in ms
 	collisionTime := time.Duration(t*1000) * time.Millisecond
 
-	if collisionTime > frame || t <= 0 {
+	if collisionTime > frame {
 		return nil, false
 	}
 

@@ -15,6 +15,10 @@ type Ball struct {
 	moved    time.Duration
 }
 
+func (b *Ball) intersecting(b1 *Ball) bool {
+	return b1.Radius+b.Radius > b1.Position.distance(b.Position)
+}
+
 func (b *Ball) X() float64 {
 	return b.Position.X
 }
