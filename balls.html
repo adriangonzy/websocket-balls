@@ -47,6 +47,7 @@
             this.maxMass = 5;
             this.minMass = 1;
             this.frameRate = 30;
+            this.searchAreaFactor = 5;
             this.start = startGame;
             this.stop = stopGame;
         };
@@ -54,8 +55,11 @@
         var initControls = function() {
             var config = new Config();
              var gui = new dat.GUI();
+             gui.add(config, 'start');
+             gui.add(config, 'stop');
              gui.add(config, 'BallCount', 2, 1000).step(1);
              gui.add(config, 'frameRate', 1, 100).step(1);
+             gui.add(config, 'searchAreaFactor', 1, 10).step(1);
              gui.add(config, 'canvasHeight', 10, 1000).step(100);
              gui.add(config, 'canvasWidth', 10, 1000).step(100);
              gui.add(config, 'maxRadius', 0.01, 10).step(0.1);
@@ -64,8 +68,6 @@
              gui.add(config, 'minVelocity', 0, 10).step(0.1);
              gui.add(config, 'maxMass', 1, 1000).step(0.1);
              gui.add(config, 'minMass', 1, 1000).step(0.1);
-             gui.add(config, 'start');
-             gui.add(config, 'stop');
              return config;
         };
 

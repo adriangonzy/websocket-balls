@@ -9,22 +9,23 @@ import (
 )
 
 const (
-	PTM              = 10      // pixel to meter ratio
-	searchAreaFactor = PTM * 5 // should use max velocity
+	PTM = 10 // pixel to meter ratio
 )
 
 type Config struct {
-	CanvasHeight float64 `json: canvasHeight` // pixels
-	CanvasWidth  float64 `json: canvasWidth`  // pixels
-	MaxRadius    float64 `json: maxRadius`    // meter
-	MinRadius    float64 `json: minRadius`    // meter
-	MaxVelocity  float64 `json: maxVelocity`  // meter/s
-	MinVelocity  float64 `json: minVelocity`  // meter/s
-	MaxMass      float64 `json: maxMass`      // kg
-	MinMass      float64 `json: minMass`      // kg
-	FrameRate    int     `json: frameRate`    // frames/s
-	BallCount    int
-	Frame        time.Duration // frame in ms
+	CanvasHeight     float64 `json: canvasHeight` // pixels
+	CanvasWidth      float64 `json: canvasWidth`  // pixels
+	MaxRadius        float64 `json: maxRadius`    // meter
+	MinRadius        float64 `json: minRadius`    // meter
+	MaxVelocity      float64 `json: maxVelocity`  // meter/s
+	MinVelocity      float64 `json: minVelocity`  // meter/s
+	MaxMass          float64 `json: maxMass`      // kg
+	MinMass          float64 `json: minMass`      // kg
+	FrameRate        int     `json: frameRate`    // frames/s
+	SearchAreaFactor int     `json: searchAreaFactor`
+	BallCount        int
+
+	Frame time.Duration // frame in ms
 }
 
 type Simulation struct {
@@ -37,7 +38,7 @@ type Simulation struct {
 
 func NewSimulation(c *Config) *Simulation {
 	c.Frame = time.Duration(1000/c.FrameRate) * time.Millisecond
-	fmt.Printf("NEW SIMULATION %#v", c)
+	fmt.Printf("NEW SIMULATION %#v\n", c)
 
 	//init random balls array
 	//TODO: uniformly spread balls accross the canvas for avoiding early ball collisions
@@ -66,7 +67,8 @@ func (s *Simulation) Start() {
 				// TODO: block until current frame is finished
 				frames = frames + 1
 				fmt.Println("frame", frames)
-				s.run(s.config.Frame, 5)
+				s.run(s.config.Frame)
+				fmt.Println("===================")
 			case <-s.done:
 				return
 			}
@@ -81,48 +83,23 @@ func (s *Simulation) Stop() {
 }
 
 // Compute simulation balls movement during one frame
-func (s *Simulation) run(delta time.Duration, times int) {
+func (s *Simulation) run(delta time.Duration) {
 	start := time.Now()
 	fmt.Println(delta, "delta")
-	frame := delta
-	for i := 0; i < times; i++ {
-		fmt.Println(i, "sub-frame")
-		s.computeCollisions(delta)
-		fmt.Println(time.Since(start), "compute collisions")
-		fmt.Println(len(s.collisions), "number of collisions")
 
-		if len(s.collisions) == 0 {
-			break
-		}
+	s.computeCollisions(delta)
+	fmt.Println("	compute collisions", time.Since(start))
+	fmt.Println("	collisions", len(s.collisions))
 
+	if len(s.collisions) > 0 {
 		s.sortCollisions()
-		fmt.Println(time.Since(start), "sort collisions")
 		s.moveAfterCollisions()
-		fmt.Println(time.Since(start), "move after collisions")
-
-		last := s.collisions[len(s.collisions)-1:][0].moment
-		s.finishMoving(last, nil)
-		fmt.Println(time.Since(start), "finish moving balls")
-		delta = delta - last
 	}
-	pipe := make(chan *Ball)
-	s.finishMoving(frame, pipe)
-	// change to pixel unit and compress sent data
-	compressedBalls := make([][]interface{}, len(s.balls))
-	for b := range pipe {
-		p := b.Position.multiply(PTM)
-		compressedBalls = append(compressedBalls, []interface{}{
-			p.X,
-			p.Y,
-			b.Radius * PTM,
-			b.Color,
-		})
 
-	}
-	fmt.Println(time.Since(start), "compress balls")
+	s.finishMoving(delta)
 
 	// stream ball slice after movement computations
-	s.Emit <- compressedBalls
+	s.Emit <- s.compressBalls()
 	fmt.Println(time.Since(start), "TOTAL")
 }
 
@@ -155,7 +132,7 @@ func (s *Simulation) computeCollisions(delta time.Duration) {
 
 	// concurrently compute pairs of balls collisions
 	for _, b1 := range s.balls {
-		searchArea := s.config.MaxRadius * searchAreaFactor
+		searchArea := s.config.MaxRadius * float64(s.config.SearchAreaFactor) * PTM
 		area := quadtree.Box{b1.X(), b1.Y(), searchArea, searchArea}
 		// this could be optimized
 		neighbors := q.SearchArea(&area)
@@ -190,7 +167,7 @@ func (s *Simulation) moveAfterCollisions() {
 	}
 }
 
-func (s *Simulation) finishMoving(delta time.Duration, pipe chan *Ball) {
+func (s *Simulation) finishMoving(delta time.Duration) {
 	// finish moving balls concurrently in frame
 	var wg sync.WaitGroup
 	wg.Add(len(s.balls))
@@ -200,13 +177,27 @@ func (s *Simulation) finishMoving(delta time.Duration, pipe chan *Ball) {
 			// TODO: wall collision computed the same way as ball collision
 			b.wallCollision(s.config.CanvasWidth, s.config.CanvasHeight)
 			b.move(delta - b.moved)
-			if pipe != nil {
-				pipe <- b
-			}
 			wg.Done()
+			b.moved = 0
 		}(b, i)
 	}
 	wg.Wait()
+}
+
+func (s *Simulation) compressBalls() [][]interface{} {
+	// change to pixel unit and compress sent data
+	compressedBalls := make([][]interface{}, len(s.balls))
+	for i, b := range s.balls {
+		p := b.Position.multiply(PTM)
+		compressedBalls[i] = []interface{}{
+			p.X,
+			p.Y,
+			b.Radius * PTM,
+			b.Color,
+		}
+	}
+	fmt.Println(compressedBalls)
+	return compressedBalls
 }
 
 type ByTime []*Collision
