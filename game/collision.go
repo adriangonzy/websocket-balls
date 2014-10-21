@@ -7,61 +7,49 @@ import (
 )
 
 type Collision struct {
-	b1, b2 *Ball
+	B1, B2 *Ball
 	moment time.Duration
 }
 
 func (c *Collision) String() string {
-	return fmt.Sprintf("%d", c.moment)
+	return fmt.Sprintf("%+v", *c)
 }
 
 func (b *Ball) wallCollision(width, height float64) {
 	r := b.Radius
 	// horizontal movement collision
 	switch {
-	case b.Position.X+r >= width/PTM && b.velocity.X >= 0:
-		b.velocity.X = -b.velocity.X
-		b.Position.X = width/PTM - r
-	case b.Position.X-r <= 0 && b.velocity.X <= 0:
-		b.velocity.X = -b.velocity.X
-		b.Position.X = r
+	case b.C.X+r >= width/PTM && b.V.X >= 0:
+		b.V.X = -b.V.X
+		b.C.X = width/PTM - r
+	case b.C.X-r <= 0 && b.V.X <= 0:
+		b.V.X = -b.V.X
+		b.C.X = r
 	}
 
 	// vertical movement collision
 	switch {
-	case b.Position.Y+r >= height/PTM && b.velocity.Y >= 0:
-		b.velocity.Y = -b.velocity.Y
-		b.Position.Y = height/PTM - r
-	case b.Position.Y-r <= 0 && b.velocity.Y <= 0:
-		b.velocity.Y = -b.velocity.Y
-		b.Position.Y = r
+	case b.C.Y+r >= height/PTM && b.V.Y >= 0:
+		b.V.Y = -b.V.Y
+		b.C.Y = height/PTM - r
+	case b.C.Y-r <= 0 && b.V.Y <= 0:
+		b.V.Y = -b.V.Y
+		b.C.Y = r
 	}
-}
-
-func approaching(b1, b2 *Ball) bool {
-	d1 := b1.Position.distance(b2.Position)
-	b1.move(time.Millisecond)
-	b2.move(time.Millisecond)
-	d2 := b1.Position.distance(b2.Position)
-	b1.move(-time.Millisecond)
-	b2.move(-time.Millisecond)
-	return d1 >= d2
 }
 
 func collisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
 
-	/*
-		TODO:
-			- Movement before collision should be done here.
-			- negative solutions have to be sorted and the most recent counted as collision
-			  if balls are intersecting. test this
-			- The rest of the algo will work by means of sorting and correcting movement.
-	*/
+	if b1.Id == b2.Id {
+		return nil, false
+	}
 
 	// avoid molecule like structures (glued balls)
-	V1V2 := &vector{b2.velocity.X - b1.velocity.X, b2.velocity.Y - b1.velocity.Y}
-	C1C2 := &vector{b2.Position.X - b1.Position.X, b2.Position.Y - b1.Position.Y}
+	V1V2 := &vector{b2.V.X - b1.V.X, b2.V.Y - b1.V.Y}
+	C1C2 := &vector{b2.C.X - b1.C.X, b2.C.Y - b1.C.Y}
 	rTotal := b1.Radius + b2.Radius
+
+	TFrame := float64(frame) / float64(time.Millisecond*1000)
 
 	// discriminant computation
 	a := V1V2.Dot(V1V2)
@@ -84,12 +72,12 @@ func collisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
 	case 0 < t1 && 0 < t2:
 		t = math.Min(t1, t2)
 	case 0 < t1 && t2 < 0:
-		if b1.intersecting(b2) {
+		if b1.intersecting(b2) && t2 > -TFrame {
 			t = t2
 		}
 		t = t1
 	case 0 < t2 && t1 < 0:
-		if b1.intersecting(b2) {
+		if b1.intersecting(b2) && t1 > -TFrame {
 			t = t1
 		}
 		t = t2
@@ -98,28 +86,39 @@ func collisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
 	// collision time in ms
 	collisionTime := time.Duration(t*1000) * time.Millisecond
 
-	if collisionTime > frame || collisionTime < -frame {
+	if collisionTime > frame || collisionTime < -frame || t == 0 {
 		return nil, false
 	}
+
+	//* debug
+	if b1.intersecting(b2) {
+		fmt.Println(b1.Id, b2.Id, "intersecting", "t1", t1, "t2", t2)
+	} else {
+		fmt.Println(b1.Id, b2.Id, "t1", t1, "t2", t2)
+	}
+
+	fmt.Println(b1.Id, "collides", b2.Id, "at", collisionTime)
+	//*/ debug
 
 	return &Collision{b1, b2, collisionTime}, true
 }
 
 func (c *Collision) reaction() {
-	b1, b2 := c.b1, c.b2
+	b1, b2 := c.B1, c.B2
+
 	//fmt.Println("COLLISION between", b1.Id, b2.Id)
-	normVector := &vector{b2.Position.X - b1.Position.X, b2.Position.Y - b1.Position.Y}
+	normVector := &vector{b2.C.X - b1.C.X, b2.C.Y - b1.C.Y}
 	normVector.Normalise()
 
 	// balls relative velocity projected on the normal vector
-	vRelative := &vector{b2.velocity.X - b1.velocity.X, b2.velocity.Y - b1.velocity.Y}
+	vRelative := &vector{b2.V.X - b1.V.X, b2.V.Y - b1.V.Y}
 	vRelative = normVector.multiply(vRelative.Dot(normVector))
 
-	m1, m2 := b1.mass, b2.mass
+	m1, m2 := b1.Mass, b2.Mass
 	massMean := (m1 + m2) / 2
 
 	// v1' = v1 + (m2/massMean) * vRelative
-	b1.velocity = b1.velocity.add(vRelative.multiply(m2 / massMean))
+	b1.V = b1.V.add(vRelative.multiply(m2 / massMean))
 	// v2' = v2 - (m1/massMean) * vRelative
-	b2.velocity = b2.velocity.add(vRelative.multiply(-1 * m1 / massMean))
+	b2.V = b2.V.add(vRelative.multiply(-1 * m1 / massMean))
 }

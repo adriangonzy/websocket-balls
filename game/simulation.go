@@ -82,14 +82,15 @@ func (s *Simulation) Stop() {
 	close(s.Emit)
 }
 
+func print(msg string) {
+	fmt.Println(msg)
+}
+
 // Compute simulation balls movement during one frame
 func (s *Simulation) run(delta time.Duration) {
 	start := time.Now()
-	fmt.Println(delta, "delta")
-
 	s.computeCollisions(delta)
-	fmt.Println("	compute collisions", time.Since(start))
-	fmt.Println("	collisions", len(s.collisions))
+	fmt.Println("collisions", len(s.collisions), "time", time.Since(start))
 
 	fmt.Printf("%#v\n", s.balls)
 	fmt.Println("compute")
@@ -101,14 +102,13 @@ func (s *Simulation) run(delta time.Duration) {
 		fmt.Printf("%#v\n", s.balls)
 		fmt.Println("move after")
 	}
-
 	s.finishMoving(delta)
 	fmt.Printf("%#v\n", s.balls)
 	fmt.Println("finish")
 
 	// stream ball slice after movement computations
 	s.Emit <- s.compressBalls()
-	fmt.Println(time.Since(start), "TOTAL")
+	fmt.Println(time.Since(start))
 }
 
 func (s *Simulation) computeCollisions(delta time.Duration) {
@@ -141,7 +141,7 @@ func (s *Simulation) computeCollisions(delta time.Duration) {
 	// concurrently compute pairs of balls collisions
 	for _, b1 := range s.balls {
 		searchArea := s.config.MaxRadius * float64(s.config.SearchAreaFactor) * PTM
-		area := quadtree.Box{b1.X(), b1.Y(), searchArea, searchArea}
+		area := quadtree.Box{b1.C.X, b1.C.Y, searchArea, searchArea}
 		// this could be optimized
 		neighbors := q.SearchArea(&area)
 		wg.Add(len(neighbors))
@@ -161,16 +161,16 @@ func (s *Simulation) computeCollisions(delta time.Duration) {
 }
 
 func (s *Simulation) moveAfterCollisions() {
-	collided := make(map[*Ball]bool)
+	collided := make(map[int]bool)
 	// compute ball movement given collision slice
 	for _, c := range s.collisions {
-		if collided[c.b1] || collided[c.b2] {
+		if collided[c.B1.Id] || collided[c.B2.Id] {
 			continue
 		}
-		collided[c.b1], collided[c.b2] = true, true
+		collided[c.B1.Id], collided[c.B2.Id] = true, true
 		// move balls to collision time
-		c.b1.move(c.moment)
-		c.b2.move(c.moment)
+		c.B1.move(c.moment)
+		c.B2.move(c.moment)
 		c.reaction()
 	}
 }
@@ -179,14 +179,13 @@ func (s *Simulation) finishMoving(delta time.Duration) {
 	// finish moving balls concurrently in frame
 	var wg sync.WaitGroup
 	wg.Add(len(s.balls))
-
 	for i, b := range s.balls {
 		go func(b *Ball, i int) {
 			// TODO: wall collision computed the same way as ball collision
 			b.wallCollision(s.config.CanvasWidth, s.config.CanvasHeight)
 			b.move(delta - b.moved)
-			wg.Done()
 			b.moved = 0
+			wg.Done()
 		}(b, i)
 	}
 	wg.Wait()
@@ -197,8 +196,7 @@ func (s *Simulation) compressBalls() [][]interface{} {
 	compressedBalls := make([][]interface{}, len(s.balls))
 	fmt.Printf("%#v\n", s.balls)
 	for i, b := range s.balls {
-		p := b.Position.multiply(PTM)
-
+		p := b.C.multiply(PTM)
 		compressedBalls[i] = []interface{}{
 			p.X,
 			p.Y,
@@ -206,7 +204,6 @@ func (s *Simulation) compressBalls() [][]interface{} {
 			b.Color,
 		}
 	}
-	fmt.Println(compressedBalls)
 	return compressedBalls
 }
 
@@ -217,5 +214,6 @@ func (a ByTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByTime) Less(i, j int) bool { return a[i].moment < a[j].moment }
 
 func (s *Simulation) sortCollisions() {
+
 	sort.Sort(ByTime(s.collisions))
 }
