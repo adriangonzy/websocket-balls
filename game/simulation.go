@@ -91,12 +91,20 @@ func (s *Simulation) run(delta time.Duration) {
 	fmt.Println("	compute collisions", time.Since(start))
 	fmt.Println("	collisions", len(s.collisions))
 
+	fmt.Printf("%#v\n", s.balls)
+	fmt.Println("compute")
 	if len(s.collisions) > 0 {
 		s.sortCollisions()
+		fmt.Printf("%#v\n", s.balls)
+		fmt.Println("sort")
 		s.moveAfterCollisions()
+		fmt.Printf("%#v\n", s.balls)
+		fmt.Println("move after")
 	}
 
 	s.finishMoving(delta)
+	fmt.Printf("%#v\n", s.balls)
+	fmt.Println("finish")
 
 	// stream ball slice after movement computations
 	s.Emit <- s.compressBalls()
@@ -187,8 +195,10 @@ func (s *Simulation) finishMoving(delta time.Duration) {
 func (s *Simulation) compressBalls() [][]interface{} {
 	// change to pixel unit and compress sent data
 	compressedBalls := make([][]interface{}, len(s.balls))
+	fmt.Printf("%#v\n", s.balls)
 	for i, b := range s.balls {
 		p := b.Position.multiply(PTM)
+
 		compressedBalls[i] = []interface{}{
 			p.X,
 			p.Y,

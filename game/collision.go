@@ -98,7 +98,7 @@ func collisionInFrame(b1, b2 *Ball, frame time.Duration) (*Collision, bool) {
 	// collision time in ms
 	collisionTime := time.Duration(t*1000) * time.Millisecond
 
-	if collisionTime > frame {
+	if collisionTime > frame || collisionTime < -frame {
 		return nil, false
 	}
 

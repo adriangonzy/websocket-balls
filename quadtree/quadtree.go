@@ -181,6 +181,33 @@ func (qt *QuadTree) subDivide() {
 	qt.points = nil
 }
 
+func (q *QuadTree) isLeaf() {
+	return qt.northWest == nil
+}
+
+func (q *QuadTree) leafs() []*QuadTree {
+	leafs := []*QuadTree{}
+
+	if !q.isLeaf() {
+		leafs = append(leafs, qt.northWest.leafs())
+		leafs = append(leafs, qt.northEast.leafs())
+		leafs = append(leafs, qt.southWest.leafs())
+		leafs = append(leafs, qt.southEast.leafs())
+	} else {
+		leafs = append(leafs, q)
+	}
+	return leafs
+}
+
+func (q *QuadTree) leafPoints() [][]Point {
+	leafs := q.leafs()
+	points := [][]Point{}
+	for _, l := range leafs {
+		points = append(points, l.points)
+	}
+	return points
+}
+
 func (qt *QuadTree) SearchArea(a *Box) []Point {
 	results := make([]Point, 0, qt.nodeCapacity)
 
