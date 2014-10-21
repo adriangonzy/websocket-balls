@@ -37,17 +37,17 @@
         };
 
         var Config = function() {
-            this.BallCount = 250;
+            this.BallCount = 10;
             this.canvasHeight = 900;
-            this.canvasWidth = 600;
+            this.canvasWidth = 900;
             this.maxRadius = 1;
-            this.minRadius = 1;
+            this.minRadius = 0.1;
             this.maxVelocity = 10;
             this.minVelocity = 0.5;
             this.maxMass = 5;
             this.minMass = 1;
             this.frameRate = 30;
-            this.searchAreaFactor = 5;
+            this.searchAreaFactor = 3;
             this.start = startGame;
             this.stop = stopGame;
         };
